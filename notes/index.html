@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AWS Solutions Architect — Shreyas Rajiv</title>
+<meta name="description" content="Personal AWS Solutions Architect study notes by Shreyas Rajiv. Exam-ready, production-grade references.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ── RESET ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:       #1A1916;
+    --ink-2:     #5C5A55;
+    --ink-3:     #9C9A94;
+    --paper:     #F8F6F1;
+    --paper-2:   #EFEDE6;
+    --paper-3:   #E5E2D9;
+    --gold:      #B08D57;
+    --gold-light:#F0E8D8;
+    --rule:      rgba(26,25,22,0.1);
+    --rule-med:  rgba(26,25,22,0.18);
+    --r:         8px;
+    --r-lg:      14px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── SUBTLE GRID TEXTURE ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--rule) 1px, transparent 1px),
+      linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.45;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 48px;
+    height: 60px;
+    background: rgba(248,246,241,0.88);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .nav-brand {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .nav-brand strong { color: var(--ink); font-weight: 500; }
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--ink-3);
+    text-decoration: none;
+    letter-spacing: 0.06em;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--ink); }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 120px 48px 80px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .hero-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+    animation: rise 0.8s ease both;
+  }
+  .eyebrow-line {
+    width: 32px;
+    height: 1px;
+    background: var(--gold);
+  }
+  .eyebrow-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  .hero-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: clamp(52px, 8vw, 96px);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 8px;
+    animation: rise 0.8s 0.1s ease both;
+  }
+  .hero-title em {
+    font-style: italic;
+    color: var(--ink-2);
+  }
+
+  .hero-subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(18px, 2.5vw, 26px);
+    color: var(--ink-3);
+    margin-bottom: 48px;
+    animation: rise 0.8s 0.2s ease both;
+  }
+
+  .hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    animation: rise 0.8s 0.3s ease both;
+  }
+  .hero-author {
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .hero-author strong { color: var(--ink); font-weight: 500; }
+  .hero-divider { width: 1px; height: 16px; background: var(--rule-med); }
+  .hero-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: var(--gold-light);
+    padding: 4px 10px;
+    border-radius: 99px;
+    border: 1px solid rgba(176,141,87,0.25);
+  }
+
+  /* Decorative rule below hero */
+  .hero-rule {
+    position: absolute;
+    bottom: 60px;
+    left: 48px;
+    right: 48px;
+    height: 1px;
+    background: var(--rule);
+    animation: rise 0.8s 0.4s ease both;
+  }
+  .hero-rule::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: -2px;
+    width: 48px;
+    height: 5px;
+    background: var(--gold);
+  }
+
+  /* ── MAIN CONTENT ── */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 80px 48px 120px;
+  }
+
+  /* ── SECTION HEADER ── */
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .section-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+  }
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 36px;
+    font-weight: 400;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .section-rule {
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  /* ── CHAPTER GRID ── */
+  .chapter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    margin-bottom: 80px;
+  }
+
+  .chapter-card {
+    background: var(--paper);
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s;
+    position: relative;
+  }
+  .chapter-card:hover { background: var(--paper-2); }
+  .chapter-card.available:hover .card-arrow { opacity: 1; transform: translate(2px, -2px); }
+
+  .chapter-card.coming-soon {
+    cursor: default;
+    opacity: 0.6;
+  }
+  .chapter-card.coming-soon:hover { background: var(--paper); }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .card-chapter-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .card-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 99px;
+  }
+  .status-available {
+    color: var(--gold);
+    background: var(--gold-light);
+    border: 1px solid rgba(176,141,87,0.22);
+  }
+  .status-soon {
+    color: var(--ink-3);
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+  }
+
+  .card-body { flex: 1; }
+  .card-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1.25;
+    color: var(--ink);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .card-desc {
+    font-size: 12.5px;
+    color: var(--ink-3);
+    line-height: 1.65;
+  }
+
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-3);
+    background: var(--paper-3);
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+  }
+  .available .tag { color: var(--ink-2); }
+
+  .card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--rule);
+    padding-top: 16px;
+    margin-top: 4px;
+  }
+  .card-meta {
+    font-size: 11px;
+    color: var(--ink-3);
+    font-family: 'DM Mono', monospace;
+  }
+  .card-arrow {
+    font-size: 16px;
+    color: var(--gold);
+    transition: all 0.2s;
+    opacity: 0;
+  }
+
+  /* ── PROGRESS STRIP ── */
+  .progress-strip {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-lg);
+    padding: 28px 32px;
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    margin-bottom: 80px;
+  }
+  .progress-stat { text-align: center; }
+  .progress-stat .num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 42px;
+    font-weight: 300;
+    line-height: 1;
+    color: var(--ink);
+    display: block;
+  }
+  .progress-stat .label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-top: 4px;
+    display: block;
+  }
+  .progress-divider { width: 1px; height: 48px; background: var(--rule-med); flex-shrink: 0; }
+  .progress-bar-wrap { flex: 1; }
+  .progress-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+  .progress-bar-track {
+    height: 3px;
+    background: var(--paper-3);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    width: 11%;
+    background: var(--gold);
+    border-radius: 99px;
+    transition: width 1s ease;
+  }
+
+  /* ── ABOUT STRIP ── */
+  .about-strip {
+    border-top: 1px solid var(--rule);
+    padding-top: 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+  }
+  .about-block h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 400;
+    margin-bottom: 12px;
+  }
+  .about-block p {
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.75;
+  }
+  .about-block a {
+    color: var(--gold);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(176,141,87,0.3);
+    transition: border-color 0.2s;
+  }
+  .about-block a:hover { border-color: var(--gold); }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative;
+    z-index: 1;
+    border-top: 1px solid var(--rule);
+    padding: 32px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  footer p {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.06em;
+  }
+  footer a { color: var(--ink-2); text-decoration: none; }
+  footer a:hover { color: var(--ink); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 700px) {
+    nav { padding: 0 20px; }
+    .nav-links { display: none; }
+    .hero { padding: 100px 24px 60px; }
+    .hero-rule { left: 24px; right: 24px; }
+    main { padding: 60px 24px 80px; }
+    .chapter-grid { grid-template-columns: 1fr; }
+    .progress-strip { flex-direction: column; align-items: flex-start; gap: 20px; }
+    .progress-divider { width: 40px; height: 1px; }
+    .about-strip { grid-template-columns: 1fr; gap: 32px; }
+    footer { flex-direction: column; gap: 8px; text-align: center; padding: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <span class="nav-brand"><strong>Shreyas Rajiv</strong> &nbsp;/&nbsp; AWS SA Notes</span>
+  <ul class="nav-links">
+    <li><a href="#chapters">Chapters</a></li>
+    <li><a href="#about">About</a></li>
+    <li><a href="https://github.com" target="_blank">GitHub</a></li>
+  </ul>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-eyebrow">
+    <div class="eyebrow-line"></div>
+    <span class="eyebrow-text">AWS Solutions Architect · SAA-C03</span>
+  </div>
+
+  <h1 class="hero-title">
+    Cloud<br><em>Architecture</em><br>Notes
+  </h1>
+
+  <p class="hero-subtitle">
+    A personal study journal — rigorous, readable, and reusable.
+  </p>
+
+  <div class="hero-meta">
+    <span class="hero-author">Written by <strong>Shreyas Rajiv</strong></span>
+    <div class="hero-divider"></div>
+    <span class="hero-badge">Open Source</span>
+    <div class="hero-divider"></div>
+    <span class="hero-badge">SAA-C03</span>
+  </div>
+
+  <div class="hero-rule"></div>
+</section>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <!-- Progress -->
+  <div class="progress-strip fade-in" id="chapters">
+    <div class="progress-stat">
+      <span class="num">1</span>
+      <span class="label">Chapter done</span>
+    </div>
+    <div class="progress-divider"></div>
+    <div class="progress-stat">
+      <span class="num">9</span>
+      <span class="label">Remaining</span>
+    </div>
+    <div class="progress-divider"></div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-label">
+        <span>Study progress</span>
+        <span>1 of 10 chapters</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chapter heading -->
+  <div class="section-header fade-in">
+    <span class="section-num">§</span>
+    <h2 class="section-title">Chapters</h2>
+    <div class="section-rule"></div>
+  </div>
+
+  <!-- Chapter grid -->
+  <div class="chapter-grid fade-in">
+
+    <!-- Chapter 01 — Available -->
+    <a class="chapter-card available" href="aws-sa-notes.html">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 01</span>
+        <span class="card-status status-available">Available</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Compute &amp; Storage Fundamentals</div>
+        <p class="card-desc">EC2 instance types, purchasing models, ENI networking, EBS volume types, EFS shared filesystem — with exam tips and production patterns.</p>
+      </div>
+      <div class="card-tags">
+        <span class="tag">EC2</span>
+        <span class="tag">ENI</span>
+        <span class="tag">EBS</span>
+        <span class="tag">EFS</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">Mar 2026 · ~45 min read</span>
+        <span class="card-arrow">↗</span>
+      </div>
+    </a>
+
+    <!-- Chapter 02 — Coming soon -->
+    <div class="chapter-card coming-soon">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 02</span>
+        <span class="card-status status-soon">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Networking &amp; VPC</div>
+        <p class="card-desc">VPC design, subnets, route tables, internet & NAT gateways, VPC peering, Transit Gateway, PrivateLink, VPN, and Direct Connect.</p>
+      </div>
+      <div class="card-tags">
+        <span class="tag">VPC</span>
+        <span class="tag">Subnets</span>
+        <span class="tag">NAT</span>
+        <span class="tag">Direct Connect</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">In progress</span>
+      </div>
+    </div>
+
+    <!-- Chapter 03 -->
+    <div class="chapter-card coming-soon">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 03</span>
+        <span class="card-status status-soon">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Identity &amp; Access Management</div>
+        <p class="card-desc">IAM users, roles, policies, permission boundaries, SCP, identity federation, Cognito, and STS assume-role patterns.</p>
+      </div>
+      <div class="card-tags">
+        <span class="tag">IAM</span>
+        <span class="tag">SCP</span>
+        <span class="tag">Cognito</span>
+        <span class="tag">STS</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">In progress</span>
+      </div>
+    </div>
+
+    <!-- Chapter 04 -->
+    <div class="chapter-card coming-soon">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 04</span>
+        <span class="card-status status-soon">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Object Storage &amp; Data Lakes</div>
+        <p class="card-desc">S3 storage classes, lifecycle policies, versioning, replication, event notifications, presigned URLs, and Athena.</p>
+      </div>
+      <div class="card-tags">
+        <span class="tag">S3</span>
+        <span class="tag">Glacier</span>
+        <span class="tag">Athena</span>
+        <span class="tag">Lake Formation</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">In progress</span>
+      </div>
+    </div>
+
+    <!-- Chapter 05 -->
+    <div class="chapter-card coming-soon">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 05</span>
+        <span class="card-status status-soon">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Databases</div>
+        <p class="card-desc">RDS multi-AZ vs read replicas, Aurora global database, DynamoDB, ElastiCache, and choosing the right database for the job.</p>
+      </div>
+      <div class="card-tags">
+        <span class="tag">RDS</span>
+        <span class="tag">Aurora</span>
+        <span class="tag">DynamoDB</span>
+        <span class="tag">ElastiCache</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">In progress</span>
+      </div>
+    </div>
+
+    <!-- Chapter 06 -->
+    <div class="chapter-card coming-soon">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 06</span>
+        <span class="card-status status-soon">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Containers &amp; Serverless</div>
+        <p class="card-desc">ECS vs EKS, Fargate, Lambda execution model, API Gateway, Step Functions, and event-driven serverless patterns.</p>
+      </div>
+      <div class="card-tags">
+        <span class="tag">ECS</span>
+        <span class="tag">EKS</span>
+        <span class="tag">Lambda</span>
+        <span class="tag">Fargate</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">In progress</span>
+      </div>
+    </div>
+
+    <!-- Chapter 07 -->
+    <div class="chapter-card coming-soon">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 07</span>
+        <span class="card-status status-soon">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">High Availability &amp; Scaling</div>
+        <p class="card-desc">Auto Scaling Groups, ALB vs NLB vs GWLB, Route 53 routing policies, CloudFront, and Global Accelerator.</p>
+      </div>
+      <div class="card-tags">
+        <span class="tag">ALB</span>
+        <span class="tag">ASG</span>
+        <span class="tag">Route 53</span>
+        <span class="tag">CloudFront</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">In progress</span>
+      </div>
+    </div>
+
+    <!-- Chapter 08 -->
+    <div class="chapter-card coming-soon">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 08</span>
+        <span class="card-status status-soon">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Messaging &amp; Integration</div>
+        <p class="card-desc">SQS FIFO vs Standard, SNS fan-out, EventBridge rules, Kinesis Data Streams vs Firehose, and decoupling patterns.</p>
+      </div>
+      <div class="card-tags">
+        <span class="tag">SQS</span>
+        <span class="tag">SNS</span>
+        <span class="tag">EventBridge</span>
+        <span class="tag">Kinesis</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">In progress</span>
+      </div>
+    </div>
+
+    <!-- Chapter 09 -->
+    <div class="chapter-card coming-soon">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 09</span>
+        <span class="card-status status-soon">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Security &amp; Compliance</div>
+        <p class="card-desc">KMS, Secrets Manager, WAF, Shield, GuardDuty, Security Hub, CloudTrail, and building a secure-by-default architecture.</p>
+      </div>
+      <div class="card-tags">
+        <span class="tag">KMS</span>
+        <span class="tag">WAF</span>
+        <span class="tag">GuardDuty</span>
+        <span class="tag">CloudTrail</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">In progress</span>
+      </div>
+    </div>
+
+    <!-- Chapter 10 -->
+    <div class="chapter-card coming-soon">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 10</span>
+        <span class="card-status status-soon">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Cost, Monitoring &amp; IaC</div>
+        <p class="card-desc">Cost Explorer, Budgets, CloudWatch metrics & alarms, X-Ray, CloudFormation, CDK, and Systems Manager for ops.</p>
+      </div>
+      <div class="card-tags">
+        <span class="tag">CloudWatch</span>
+        <span class="tag">CloudFormation</span>
+        <span class="tag">CDK</span>
+        <span class="tag">Cost Explorer</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">In progress</span>
+      </div>
+    </div>
+
+  </div><!-- /chapter-grid -->
+
+  <!-- About -->
+  <div class="about-strip fade-in" id="about">
+    <div class="about-block">
+      <h3>About these notes</h3>
+      <p>These are my personal study notes for the AWS Solutions Architect Associate exam (SAA-C03). Each chapter goes beyond exam prep — I write them to be useful on the job too. Every concept includes a production pattern alongside the exam tip.</p>
+    </div>
+    <div class="about-block">
+      <h3>Contribute</h3>
+      <p>Found an error, have a better explanation, or want to add a chapter? These notes are open source. <a href="https://github.com" target="_blank">Open a PR on GitHub</a> — all contributions are welcome. Let's make this the best free AWS SA resource out there.</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <p>© 2026 Shreyas Rajiv · AWS SA Notes</p>
+  <p><a href="https://github.com" target="_blank">GitHub</a> &nbsp;·&nbsp; SAA-C03 &nbsp;·&nbsp; Open Source</p>
+</footer>
+
+<script>
+  // Scroll-triggered fade ins
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+  // Animate progress bar on load
+  setTimeout(() => {
+    document.getElementById('progress-fill').style.width = '11%';
+  }, 600);
+</script>
+</body>
+</html>

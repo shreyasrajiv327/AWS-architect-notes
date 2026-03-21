@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AWS Solutions Architect Notes — EC2 · ENI · EBS · EFS</title>
+<meta name="description" content="Comprehensive AWS Solutions Architect exam notes covering EC2, ENI, EBS, and EFS. Includes exam tips, production patterns, and decision guides.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ── RESET & BASE ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --orange:       #E8593C;
+    --orange-light: #FAECE7;
+    --orange-dark:  #993C1D;
+    --blue:         #185FA5;
+    --blue-light:   #E6F1FB;
+    --blue-mid:     #378ADD;
+    --teal:         #0F6E56;
+    --teal-light:   #E1F5EE;
+    --teal-mid:     #1D9E75;
+    --purple:       #534AB7;
+    --purple-light: #EEEDFE;
+    --purple-mid:   #7F77DD;
+    --amber:        #854F0B;
+    --amber-light:  #FAEEDA;
+    --amber-mid:    #BA7517;
+    --gray:         #444441;
+    --gray-light:   #F1EFE8;
+    --gray-mid:     #888780;
+    --bg:           #FAFAF8;
+    --bg2:          #F3F1EC;
+    --border:       rgba(68,68,65,0.14);
+    --border-med:   rgba(68,68,65,0.25);
+    --text:         #1C1C1A;
+    --text-2:       #5F5E5A;
+    --text-3:       #888780;
+    --radius:       10px;
+    --radius-lg:    14px;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    min-height: 100vh;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: #0E0E0C;
+    color: #F0EEE8;
+    padding: 56px 40px 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 80% at 80% 50%, rgba(232,89,60,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 60% at 20% 80%, rgba(55,138,221,0.10) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-inner { max-width: 860px; margin: 0 auto; position: relative; }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: rgba(240,238,232,0.55);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  .hero-badge span {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--orange);
+  }
+  .hero h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(28px, 5vw, 46px);
+    font-weight: 300;
+    line-height: 1.15;
+    margin-bottom: 14px;
+    letter-spacing: -0.02em;
+  }
+  .hero h1 em {
+    font-style: italic;
+    color: #E8593C;
+  }
+  .hero-sub {
+    font-size: 14px;
+    color: rgba(240,238,232,0.55);
+    max-width: 560px;
+    line-height: 1.7;
+    margin-bottom: 28px;
+  }
+  .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .hero-tag {
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 4px 12px;
+    border-radius: 99px;
+    border: 1px solid rgba(240,238,232,0.18);
+    color: rgba(240,238,232,0.6);
+  }
+
+  /* ── LAYOUT ── */
+  .page { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* ── TAB NAV ── */
+  .tab-nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1.5px solid var(--border);
+    margin-bottom: 36px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tab-nav::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--text-3);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1.5px;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    letter-spacing: 0.03em;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--text); }
+  .tab-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .tab-panel { display: none; animation: fadeUp 0.25s ease; }
+  .tab-panel.active { display: block; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── SERVICE HEADER ── */
+  .svc-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    padding: 22px 24px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: #fff;
+    margin-bottom: 32px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .svc-icon {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .svc-header h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 5px;
+    letter-spacing: -0.02em;
+  }
+  .svc-header p { font-size: 13.5px; color: var(--text-2); line-height: 1.65; }
+
+  /* ── SECTION ── */
+  .section { margin-bottom: 32px; }
+  .section-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── CARDS ── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .card:hover {
+    border-color: var(--border-med);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 10px;
+    font-weight: 500;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 99px;
+  }
+  .card p { font-size: 13px; color: var(--text-2); line-height: 1.65; }
+  .card p strong { color: var(--text); font-weight: 500; }
+
+  /* ── KV TABLE ── */
+  .kv { width: 100%; border-collapse: collapse; }
+  .kv tr { border-bottom: 1px solid var(--border); }
+  .kv tr:last-child { border-bottom: none; }
+  .kv td { padding: 10px 0; font-size: 13px; vertical-align: top; }
+  .kv td:first-child {
+    color: var(--text-2);
+    width: 36%;
+    padding-right: 16px;
+    font-weight: 500;
+    font-size: 12.5px;
+  }
+  .kv td code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .kv td strong { font-weight: 500; }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    border-left: 3px solid;
+    padding: 12px 16px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    margin-bottom: 12px;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  .callout .label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 5px;
+  }
+  .callout.tip   { border-color: var(--teal-mid);   background: var(--teal-light);   color: var(--teal); }
+  .callout.warn  { border-color: var(--amber-mid);  background: var(--amber-light);  color: var(--amber); }
+  .callout.exam  { border-color: var(--purple-mid); background: var(--purple-light); color: var(--purple); }
+  .callout.prod  { border-color: var(--blue-mid);   background: var(--blue-light);   color: var(--blue); }
+
+  /* ── COMPARE TABLE ── */
+  .cmp-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--border); }
+  .cmp { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 560px; }
+  .cmp th {
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 500;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .cmp td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .cmp tr:last-child td { border-bottom: none; }
+  .cmp td:first-child { font-weight: 500; color: var(--text-2); font-size: 12px; }
+  .cmp .h-ebs  { background: rgba(29,158,117,0.07); }
+  .cmp .h-efs  { background: rgba(127,119,221,0.07); }
+  .cmp .h-inst { background: rgba(232,89,60,0.07); }
+
+  /* ── SCENARIOS ── */
+  .scenario {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    transition: border-color 0.15s;
+  }
+  .scenario:hover { border-color: var(--border-med); }
+  .scenario-q {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-2);
+    margin-bottom: 5px;
+  }
+  .scenario-a { font-size: 13px; line-height: 1.6; color: var(--text); }
+  .scenario-a b { color: var(--blue); font-weight: 500; }
+
+  /* ── QUICKFIRE TABLE ── */
+  .qf { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .qf tr { border-bottom: 1px solid var(--border); }
+  .qf tr:last-child { border-bottom: none; }
+  .qf td { padding: 9px 0; vertical-align: top; }
+  .qf td:first-child { color: var(--text-2); width: 40%; font-weight: 500; padding-right: 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 32px 24px;
+    font-size: 12px;
+    color: var(--text-3);
+    border-top: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  footer a { color: var(--text-2); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .hero { padding: 36px 20px 32px; }
+    .page { padding: 28px 16px 60px; }
+    .svc-header { flex-direction: column; }
+    .cards-grid { grid-template-columns: 1fr; }
+    .tab-btn { padding: 10px 12px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-badge"><span></span> AWS Solutions Architect</div>
+    <h1>EC2, ENI, EBS<br>& <em>EFS</em> — Study Notes</h1>
+    <p class="hero-sub">Exam-ready + production-grade reference. Covers purchasing models, storage types, networking, decision guides, and the patterns that actually matter in the real world.</p>
+    <div class="hero-tags">
+      <span class="hero-tag">SAA-C03</span>
+      <span class="hero-tag">Compute</span>
+      <span class="hero-tag">Block Storage</span>
+      <span class="hero-tag">File Storage</span>
+      <span class="hero-tag">Networking</span>
+      <span class="hero-tag">Open Source</span>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+  <!-- ═══ TABS ═══ -->
+  <nav class="tab-nav" role="tablist">
+    <button class="tab-btn active" onclick="showTab('ec2',this)" role="tab">
+      <span class="tab-dot" style="background:#E8593C"></span>EC2
+    </button>
+    <button class="tab-btn" onclick="showTab('eni',this)" role="tab">
+      <span class="tab-dot" style="background:#378ADD"></span>ENI
+    </button>
+    <button class="tab-btn" onclick="showTab('ebs',this)" role="tab">
+      <span class="tab-dot" style="background:#1D9E75"></span>EBS
+    </button>
+    <button class="tab-btn" onclick="showTab('efs',this)" role="tab">
+      <span class="tab-dot" style="background:#7F77DD"></span>EFS
+    </button>
+    <button class="tab-btn" onclick="showTab('compare',this)" role="tab">
+      <span class="tab-dot" style="background:#888780"></span>Compare
+    </button>
+    <button class="tab-btn" onclick="showTab('exam',this)" role="tab">
+      <span class="tab-dot" style="background:#BA7517"></span>Exam Tips
+    </button>
+  </nav>
+
+  <!-- ═══════════════ EC2 ═══════════════ -->
+  <div id="tab-ec2" class="tab-panel active">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#FAECE7;">🖥️</div>
+      <div>
+        <h2>EC2 — Elastic Compute Cloud</h2>
+        <p>Virtual servers in the cloud. The foundation of AWS compute. You pick the OS, CPU, RAM, storage, and network. Everything else on this page (ENI, EBS, EFS) attaches to EC2 instances.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Instance families — pick the right shape</div>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-title">
+            General Purpose
+            <span class="badge" style="background:#FAECE7;color:#993C1D;">T3 · M6i · M7g</span>
+          </div>
+          <p>Balanced CPU/RAM/network. <strong>T-series</strong> are burstable — earn CPU credits when idle, spend on spikes. Great for web servers, dev/test, small DBs. <strong>M-series</strong> = steady, no bursting.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            Compute Optimized
+            <span class="badge" style="background:#FAECE7;color:#993C1D;">C6i · C7g</span>
+          </div>
+          <p>High CPU-to-RAM ratio. Use for batch processing, media transcoding, HPC, ML inference, gaming servers. Choose when your workload is CPU-bound and memory is secondary.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            Memory Optimized
+            <span class="badge" style="background:#FAECE7;color:#993C1D;">R6i · X2idn</span>
+          </div>
+          <p>High RAM-to-CPU. SAP HANA, in-memory caches (Redis at scale), real-time big data analytics. X-series can reach <strong>24 TB RAM</strong>.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            Storage Optimized
+            <span class="badge" style="background:#FAECE7;color:#993C1D;">I4i · D3</span>
+          </div>
+          <p>High sequential I/O with local NVMe SSDs (instance store). NoSQL DBs, Hadoop HDFS, data warehouses. Instance store is <strong>ephemeral</strong> — not for persistent data.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            Accelerated Computing
+            <span class="badge" style="background:#FAECE7;color:#993C1D;">P4 · G5 · Inf2</span>
+          </div>
+          <p>GPUs and custom AWS chips (Trainium/Inferentia). ML training, deep learning, HPC, graphics. Inf2 is purpose-built for low-cost ML inference.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Purchasing options — always an exam topic</div>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-title" style="color:#E8593C;">On-Demand</div>
+          <p>Pay per second (Linux) or per hour. No commitment, most expensive. Use for unpredictable workloads, short-term tests, or traffic you can't forecast.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:#1D9E75;">Reserved Instances</div>
+          <p>1 or 3-year commit → up to <strong>72% off</strong> On-Demand. Standard RI = locked to family/region. Convertible RI = can change family, OS, tenancy. Use for steady-state prod.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:#378ADD;">Savings Plans</div>
+          <p>Commit to $/hr spend (not instance type) for 1–3 years. Compute SP covers EC2 + Fargate + Lambda. More flexible than RIs, similar discounts. The <strong>modern recommended path</strong>.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:#7F77DD;">Spot Instances</div>
+          <p>Up to <strong>90% off</strong> — unused EC2 capacity. AWS can reclaim with 2-min warning. Use for fault-tolerant, stateless, interruptible work: batch jobs, ML training, CI workers.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:#BA7517;">Dedicated Hosts</div>
+          <p>Physical server reserved for you. Use for compliance, BYOL (Oracle, Windows Server), or regulatory requirements. Most expensive option.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Key concepts</div>
+      <table class="kv">
+        <tr><td>AMI</td><td>Amazon Machine Image — OS + software snapshot used to launch instances. Region-specific, can be copied cross-region. Public (Amazon/community), private (yours), or Marketplace.</td></tr>
+        <tr><td>User Data</td><td>Bootstrap script run <strong>once</strong> on first boot as root. Used to install packages, pull config, start services. Max 16 KB.</td></tr>
+        <tr><td>Instance Metadata</td><td>HTTP endpoint at <code>169.254.169.254/latest/meta-data/</code>. Query AMI-ID, instance type, IAM role creds, public IP. <strong>IMDSv2</strong> (session-based tokens) is the secure default.</td></tr>
+        <tr><td>Security Groups</td><td>Stateful virtual firewall at the ENI level. Only allow rules — no deny. Changes apply immediately. Default: deny all inbound, allow all outbound.</td></tr>
+        <tr><td>Placement Groups</td><td><strong>Cluster</strong> — same rack, ultra-low latency, HPC. <strong>Spread</strong> — max 7 instances/AZ, different hardware, HA. <strong>Partition</strong> — isolated hardware groups, HDFS/Cassandra.</td></tr>
+        <tr><td>Tenancy</td><td>Shared (default) · Dedicated Instance (no cross-account hardware sharing) · Dedicated Host (full physical server control for BYOL/compliance).</td></tr>
+        <tr><td>Hibernate</td><td>RAM state saved to root EBS volume. Resume from exact memory state. Root EBS must be encrypted. Max 60 days. Great for long-initialization services.</td></tr>
+        <tr><td>Nitro System</td><td>AWS hypervisor replacing Xen. Nearly all modern instances. Enables higher networking (100 Gbps), EBS bandwidth, EFA, and bare-metal instances. Required for io2 Multi-Attach.</td></tr>
+      </table>
+    </div>
+
+    <div class="callout prod">
+      <span class="label">Production pattern — Auto Scaling Group</span>
+      Always run EC2 in an ASG: define min/desired/max. Attach to ALB/NLB. Use lifecycle hooks for graceful connection drain. Set termination policies. Combine On-Demand base capacity with Spot for burst savings (mixed instances policy).
+    </div>
+    <div class="callout tip">
+      <span class="label">Cost tip — Graviton (ARM)</span>
+      M7g/C7g/R7g (Graviton 3) offer 20–40% better price-performance vs x86 equivalents. Use for new workloads where ARM compatibility is confirmed.
+    </div>
+    <div class="callout warn">
+      <span class="label">T-series gotcha</span>
+      T3/T4g instances earn CPU credits when idle and spend them on spikes. If consistently at high CPU, credits exhaust and performance drops to the <strong>baseline</strong> (~10–30% vCPU). Fix: switch to M-series, or enable <strong>T Unlimited</strong> mode (billed for extra credits).
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENI ═══════════════ -->
+  <div id="tab-eni" class="tab-panel">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#E6F1FB;">🔌</div>
+      <div>
+        <h2>ENI — Elastic Network Interface</h2>
+        <p>A virtual NIC that lives in a VPC subnet. Every EC2 instance has at least one (eth0 = primary ENI). You can attach multiple ENIs, move them between instances, and configure networking at the ENI level independently.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">What an ENI contains</div>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-title">Private IPv4 address(es)</div>
+          <p>One primary private IP (from subnet CIDR) + optional secondary IPs. Secondary IPs let one instance host multiple websites/services. Primary IP persists if ENI is detached.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">Elastic IP (optional)</div>
+          <p>Static public IPv4 attached to a private IP on the ENI. Survives stop/start cycles. One EIP per private IP. Charged when allocated but not in use — always associate promptly.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">MAC Address</div>
+          <p>Fixed per ENI. Useful for software licensing tied to MAC address. Move the ENI → keep the MAC → license survives instance replacement.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">Security Groups</div>
+          <p>SGs attach to ENIs, not instances. An instance with 2 ENIs can have different SGs on each. Swap SGs on a live ENI instantly — no restart needed.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">Source/Dest Check</div>
+          <p>Default ON — EC2 drops packets where it isn't src or dst. Must be <strong>disabled</strong> for NAT instances, VPN gateways, or any instance routing traffic for others.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">IPv6 addresses</div>
+          <p>Optional. All AWS IPv6 are globally routable by default. For outbound-only IPv6 (no inbound), use an <strong>Egress-Only Internet Gateway</strong> — the IPv6 equivalent of NAT.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">ENI types</div>
+      <table class="kv">
+        <tr><td>Standard ENI</td><td>Default. Up to 15 per instance (large types). Suitable for all general networking. Number of allowed ENIs and secondary IPs scales with instance size.</td></tr>
+        <tr><td>ENA (Elastic Network Adapter)</td><td>Enhanced networking driver — up to 100 Gbps, low latency, high packets-per-second. Standard on all modern instance types. Replaces older ixgbevf SR-IOV driver.</td></tr>
+        <tr><td>EFA (Elastic Fabric Adapter)</td><td>OS-bypass networking for HPC and ML. Used with MPI workloads and NCCL for multi-GPU distributed training. Not for general use — specific instance types only.</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Key behaviors and use cases</div>
+      <table class="kv">
+        <tr><td>Hot attach/detach</td><td>Attach or detach ENIs from running instances (secondary ENIs only — primary eth0 cannot be detached). Requires OS-level driver support.</td></tr>
+        <tr><td>Network failover</td><td>Move a secondary ENI (with its private IP and EIP) from a failed instance to a standby instance in seconds. No DNS change needed — the IP travels with the ENI.</td></tr>
+        <tr><td>Dual-homed instance</td><td>Two ENIs in different subnets (e.g., public + private) gives the instance a presence in both. Classic use: firewalls, proxies, bastion hosts needing strict network isolation.</td></tr>
+        <tr><td>ENI limits</td><td>Max ENIs per instance scales with instance size. Example: t3.micro = 2 ENIs · c5.4xlarge = 8 ENIs · p3.16xlarge = 8 ENIs. Each ENI also has a max secondary IPs limit.</td></tr>
+        <tr><td>VPC flow logs</td><td>Captured at the ENI level. You can enable flow logs per-ENI, per-subnet, or per-VPC. Useful for debugging connectivity and security auditing.</td></tr>
+      </table>
+    </div>
+
+    <div class="callout exam">
+      <span class="label">Exam scenario — ENI failover</span>
+      Highly available database on EC2, minimal failover disruption required. Answer: move the secondary ENI (with its EIP) to a standby instance. DNS-based failover has TTL delays (60s+). ENI move is near-instant and the IP doesn't change.
+    </div>
+    <div class="callout prod">
+      <span class="label">Production pattern — multi-ENI segmentation</span>
+      Management traffic on eth0 (private subnet, admin SG). Application traffic on eth1 (public subnet, app SG). Eliminates risk of accidentally exposing management endpoints through app SG misconfiguration.
+    </div>
+    <div class="callout exam">
+      <span class="label">Source/dest check</span>
+      If an EC2 instance is acting as a NAT instance or VPN router and traffic isn't flowing through it, the answer is almost always: disable source/destination check on its ENI. This check is ON by default and prevents packet forwarding.
+    </div>
+  </div>
+
+  <!-- ═══════════════ EBS ═══════════════ -->
+  <div id="tab-ebs" class="tab-panel">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#E1F5EE;">💾</div>
+      <div>
+        <h2>EBS — Elastic Block Store</h2>
+        <p>Network-attached persistent block storage. Behaves like a hard drive plugged into EC2. Data persists independently of instance lifecycle. <strong>AZ-scoped</strong> — a volume in us-east-1a cannot attach to an instance in us-east-1b.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Volume types — know these cold</div>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-title">
+            gp3 — General Purpose SSD
+            <span class="badge" style="background:#E1F5EE;color:#085041;">Default</span>
+          </div>
+          <p>Baseline <strong>3,000 IOPS</strong> + <strong>125 MB/s</strong> regardless of size. Provision up to 16,000 IOPS and 1,000 MB/s independently. Use for most workloads: boot volumes, web servers, small-medium DBs. Cheaper than gp2 for equivalent performance.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            io2 Block Express — Provisioned IOPS SSD
+            <span class="badge" style="background:#E1F5EE;color:#085041;">Perf</span>
+          </div>
+          <p>Up to <strong>256,000 IOPS</strong> + <strong>4,000 MB/s</strong>. Multi-Attach capable (up to 16 Nitro instances, same AZ). 99.999% durability. Use for Oracle, SQL Server, mission-critical OLTP. io1 is the older, less capable predecessor.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            st1 — Throughput Optimized HDD
+            <span class="badge" style="background:#E1F5EE;color:#085041;">Sequential</span>
+          </div>
+          <p>Max <strong>500 MB/s</strong>, low cost per GB. Large sequential reads. Cannot be a boot volume. Use for data warehouses, log processing, MapReduce, Kafka. Poor for random I/O.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            sc1 — Cold HDD
+            <span class="badge" style="background:#E1F5EE;color:#085041;">Archive</span>
+          </div>
+          <p>Max <strong>250 MB/s</strong>. Lowest-cost EBS option. Infrequently accessed sequential data. Cold data lakes, backups, archives. Cannot be a boot volume.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Key features</div>
+      <table class="kv">
+        <tr><td>Snapshots</td><td>Point-in-time incremental backups stored in S3 (managed by AWS). Only changed blocks after first snapshot. Use to clone volumes, copy across AZs/regions, share. Volume remains available during snapshot creation.</td></tr>
+        <tr><td>Encryption</td><td>AES-256 via AWS KMS. Covers data at rest, in transit between EC2↔EBS, and all snapshots/copies. Set "Always encrypt new EBS volumes" as an account-level default. Unencrypted → encrypted: copy snapshot with encryption enabled, then create volume.</td></tr>
+        <tr><td>Multi-Attach</td><td>io1/io2 only. One volume → up to 16 Nitro instances in the <strong>same AZ</strong>. The application must manage concurrent writes (use cluster-aware filesystems like GFS2). Use for Oracle RAC, high-availability stateful apps.</td></tr>
+        <tr><td>EBS-Optimized</td><td>Dedicated network bandwidth for EBS I/O, separate from general instance network traffic. Enabled by default on most modern instances. Critical for IOPS-heavy workloads to avoid I/O starvation.</td></tr>
+        <tr><td>Elastic Volumes</td><td>Modify type, size, and IOPS on a live volume without downtime. Increase only — cannot shrink. After expanding, run <code>growpart</code> + <code>resize2fs</code> (ext4) or <code>xfs_growfs</code> (XFS) in the OS to use the new space.</td></tr>
+        <tr><td>Fast Snapshot Restore</td><td>Eliminates first-access I/O latency (initialization). Pre-warms volumes from snapshots. Extra cost per AZ. Use when you frequently provision from snapshots at scale (AMI-based fleets).</td></tr>
+        <tr><td>Delete on Termination</td><td>Root volume default: <strong>ON</strong>. Data volumes default: <strong>OFF</strong>. A common prod mistake is losing root volumes on termination. Set explicitly in launch templates.</td></tr>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="label">AZ boundary — the #1 gotcha</span>
+      EBS volumes are locked to one AZ. To move: snapshot → create new volume in target AZ from snapshot. For cross-region: copy the snapshot to the other region first, then create volume.
+    </div>
+    <div class="callout prod">
+      <span class="label">Production pattern — automated snapshot lifecycle</span>
+      Use AWS Backup or Data Lifecycle Manager (DLM) to automate daily snapshots, set retention windows, and copy snapshots cross-region for DR. Never rely on manual snapshots for production databases.
+    </div>
+    <div class="callout exam">
+      <span class="label">gp2 vs gp3 — know the difference</span>
+      gp2 IOPS = 3 × size in GB (min 100, max 16,000). You need 5,333 GB to hit 16K IOPS on gp2. gp3 IOPS are provisioned independently — 16,000 IOPS on a 1 GB volume. For new workloads, always prefer gp3. Exam trap: "need more IOPS → increase volume size" is gp2 logic.
+    </div>
+    <div class="callout exam">
+      <span class="label">IOPS vs Throughput — which metric matters?</span>
+      IOPS = random small I/O ops per second. Throughput = MB/s for sequential large blocks. Databases → IOPS (io2/gp3). Data warehouses, Kafka, log processing → Throughput (st1). The exam will describe a workload — pick the right metric, then the right volume type.
+    </div>
+  </div>
+
+  <!-- ═══════════════ EFS ═══════════════ -->
+  <div id="tab-efs" class="tab-panel">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#EEEDFE;">📂</div>
+      <div>
+        <h2>EFS — Elastic File System</h2>
+        <p>Fully managed, serverless NFS file system. Scales automatically from zero to petabytes. Can be mounted concurrently by thousands of EC2 instances across multiple AZs — no capacity planning required.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">EFS vs EBS — the core distinction</div>
+      <table class="kv">
+        <tr><td>Protocol</td><td>NFSv4.1/v4.0 — mounts as a shared network filesystem. EBS = block device (<code>xvda</code>, <code>nvme0n1</code>). EFS = POSIX filesystem path (<code>/mnt/efs</code>).</td></tr>
+        <tr><td>Concurrency</td><td>Thousands of instances across multiple AZs mount simultaneously with full read/write access. EBS: one instance only (except io2 Multi-Attach in same AZ, max 16).</td></tr>
+        <tr><td>Scale</td><td>Fully elastic — grows and shrinks automatically. No capacity planning. EBS: you provision a fixed size, then expand manually via Elastic Volumes.</td></tr>
+        <tr><td>OS compatibility</td><td><strong>Linux only</strong> (NFS). Windows instances cannot mount EFS natively. For Windows shared storage → Amazon FSx for Windows File Server (SMB/NTFS).</td></tr>
+        <tr><td>Cost model</td><td>Pay per GB stored + retrieval fees on IA tiers. No provisioned capacity. More expensive per GB than EBS. Use storage classes aggressively to control cost.</td></tr>
+        <tr><td>Use cases</td><td>Shared content repos, CMS media libraries, home directories, container persistent storage (ECS/EKS), ML training datasets, lift-and-shift NFS workloads.</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Storage classes and lifecycle</div>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-title">EFS Standard</div>
+          <p>Multi-AZ redundancy. Highest cost, best durability and availability. Use for frequently accessed production files requiring 99.99% SLA.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">EFS Standard-IA</div>
+          <p>Same multi-AZ durability, lower storage cost, per-access retrieval fee. Enable <strong>Intelligent-Tiering</strong> to auto-move files to IA after N days without access.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">EFS One Zone</div>
+          <p>Single AZ. Up to 47% cheaper than Standard. Suitable for dev/test, backups, or workloads where AZ resilience is handled at the application layer.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">One Zone-IA</div>
+          <p>Cheapest EFS tier. Single AZ + per-access retrieval. Best for dev environments or infrequently accessed data that doesn't need multi-AZ durability.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Throughput modes</div>
+      <table class="kv">
+        <tr><td>Elastic Throughput</td><td>Automatically scales up to 3 GB/s read / 1 GB/s write. No baseline. <strong>Recommended for most new workloads</strong> — handles spiky or unpredictable access patterns.</td></tr>
+        <tr><td>Provisioned Throughput</td><td>Fixed MB/s regardless of storage size. Use when throughput needs consistently exceed what Elastic mode provides at your storage size. Higher cost.</td></tr>
+        <tr><td>Bursting Throughput</td><td>Legacy. Throughput tied to file system size (50 MB/s per TB stored, burst to 100 MB/s per TB). Burst credits accumulate when idle. Can throttle small, heavily accessed file systems.</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Security and access</div>
+      <table class="kv">
+        <tr><td>Mount targets</td><td>One mount target per AZ (created in a subnet). Instances connect to the mount target in their AZ. Each mount target has an IP + Security Group. You need one per AZ you want to access EFS from.</td></tr>
+        <tr><td>Security Groups</td><td>Mount target SG must allow NFS inbound (port <strong>2049</strong>) from instance SGs. Instance SG must allow NFS outbound (the EFS mount helper handles this automatically).</td></tr>
+        <tr><td>Encryption</td><td>At-rest: KMS-managed, set at creation (cannot enable retroactively). In-transit: TLS via <code>amazon-efs-utils</code> mount helper. <strong>Always enable both in production.</strong></td></tr>
+        <tr><td>EFS Access Points</td><td>Enforce a POSIX user/group identity and a root directory path per client. Combine with IAM to give containers or Lambda isolated views into the same EFS filesystem — no cross-contamination of data.</td></tr>
+        <tr><td>VPC-native only</td><td>EFS is VPC-bound. On-premises access requires Direct Connect or VPN. Cross-region replication → use <strong>AWS DataSync</strong>.</td></tr>
+      </table>
+    </div>
+
+    <div class="callout prod">
+      <span class="label">Production pattern — EFS with ECS/EKS</span>
+      In ECS: define EFS volumes in task definitions with mount points. In EKS: use the EFS CSI driver with PersistentVolumeClaims set to <strong>ReadWriteMany</strong> access mode. EFS is the only AWS-native storage that supports RWX across multiple nodes — critical for stateful multi-pod workloads.
+    </div>
+    <div class="callout exam">
+      <span class="label">Exam trigger — "shared across instances / AZs"</span>
+      Whenever a scenario mentions multiple EC2 instances needing access to the same files simultaneously — especially across AZs — the answer is EFS. Not S3 (object storage, not mountable as a filesystem). Not EBS (single instance). EFS.
+    </div>
+    <div class="callout exam">
+      <span class="label">Windows = not EFS</span>
+      EFS is Linux/NFS only. Windows workloads needing shared file storage → <strong>Amazon FSx for Windows File Server</strong> (SMB protocol, NTFS filesystem, Active Directory integration). This distinction is tested frequently.
+    </div>
+  </div>
+
+  <!-- ═══════════════ COMPARE ═══════════════ -->
+  <div id="tab-compare" class="tab-panel">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#F1EFE8;">⚖️</div>
+      <div>
+        <h2>Storage Comparison</h2>
+        <p>EBS vs EFS vs Instance Store — three completely different storage models. Confusing these is the most common storage mistake on the exam and in production architectures.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Head-to-head</div>
+      <div class="cmp-wrap">
+        <table class="cmp">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th class="h-ebs">EBS</th>
+              <th class="h-efs">EFS</th>
+              <th class="h-inst">Instance Store</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Type</td><td>Block</td><td>File (NFS)</td><td>Block</td></tr>
+            <tr><td>Attachment</td><td>1 instance (io2 up to 16 in same AZ)</td><td>Thousands, multi-AZ, concurrent</td><td>This instance only, built-in</td></tr>
+            <tr><td>Persistence</td><td>Persists until deleted</td><td>Persists until deleted</td><td><strong>Ephemeral</strong> — lost on stop/terminate/hardware failure</td></tr>
+            <tr><td>AZ scope</td><td>Locked to one AZ</td><td>Multi-AZ (Standard) or single AZ</td><td>Same physical host as instance</td></tr>
+            <tr><td>Scale</td><td>Manual (Elastic Volumes)</td><td>Automatic, fully elastic</td><td>Fixed — depends on instance type</td></tr>
+            <tr><td>OS support</td><td>Linux + Windows</td><td>Linux only</td><td>Linux + Windows</td></tr>
+            <tr><td>Max performance</td><td>256K IOPS (io2 BE)</td><td>3 GB/s read (Elastic)</td><td>Millions of IOPS (NVMe, local)</td></tr>
+            <tr><td>Cost model</td><td>Provisioned GB + IOPS</td><td>Per GB stored (pay as you go)</td><td>Included in instance price</td></tr>
+            <tr><td>Snapshots/backup</td><td>EBS Snapshots (S3-backed)</td><td>AWS Backup</td><td>Not supported</td></tr>
+            <tr><td>Encryption</td><td>KMS</td><td>KMS</td><td>Some instance types support NVMe encryption</td></tr>
+            <tr><td>Kubernetes</td><td>ReadWriteOnce (one pod)</td><td>ReadWriteMany (multi-pod)</td><td>Not usable with K8s PVCs</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Decision guide — which to pick?</div>
+      <div class="scenario">
+        <div class="scenario-q">Single EC2 instance running MySQL, PostgreSQL, or MongoDB</div>
+        <div class="scenario-a">→ <b>EBS gp3</b>. Block storage, single instance. High IOPS needed? → io2. The database owns the volume exclusively.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Multiple EC2 instances in an ASG sharing a media library or CMS content</div>
+        <div class="scenario-a">→ <b>EFS</b>. Concurrent multi-instance reads and writes across AZs. All instances see the same files immediately via shared POSIX filesystem.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Kubernetes (EKS) pods needing persistent shared storage</div>
+        <div class="scenario-a">→ <b>EFS</b> with EFS CSI driver + PVC with <b>ReadWriteMany</b>. EBS = ReadWriteOnce (one node). EFS = ReadWriteMany (all nodes).</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Hadoop HDFS, Cassandra, or Kafka on EC2</div>
+        <div class="scenario-a">→ <b>Instance Store</b> (NVMe) for highest I/O. Replicate at the application layer for durability. The app handles redundancy; the storage provides speed.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Temporary scratch space for a batch or ML training job</div>
+        <div class="scenario-a">→ <b>Instance Store</b>. Ephemeral is acceptable, fastest I/O, included in instance price. Data is gone when the job ends — that's fine.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Cross-region DR copy of database volumes</div>
+        <div class="scenario-a">→ <b>EBS Snapshot</b> copied to target region → restore as volume. For EFS → use <b>AWS DataSync</b> to replicate cross-region or cross-account.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Windows file server shared across multiple EC2 Windows instances</div>
+        <div class="scenario-a">→ <b>Amazon FSx for Windows File Server</b>. EFS is Linux/NFS only. FSx supports SMB, NTFS, Active Directory, DFS namespaces.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ EXAM TIPS ═══════════════ -->
+  <div id="tab-exam" class="tab-panel">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#FAEEDA;">📋</div>
+      <div>
+        <h2>Exam Tips &amp; Tricky Scenarios</h2>
+        <p>High-yield patterns that appear consistently on the SAA-C03 exam. One detail in the scenario often changes the entire answer — read carefully.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">EC2 exam patterns</div>
+      <div class="callout exam">
+        <span class="label">Spot vs On-Demand</span>
+        Fault-tolerant batch job that runs overnight → Spot. Stateful web server that cannot be interrupted → On-Demand or Reserved. Keywords "fault-tolerant" or "stateless" almost always point to Spot.
+      </div>
+      <div class="callout exam">
+        <span class="label">Reserved vs Savings Plans</span>
+        Both give ~65–72% discounts. Savings Plans are more flexible (cover Fargate + Lambda). Standard RI gives the highest EC2 discount. Exam asks "most cost-effective for steady-state EC2" → Standard RI (1yr, no upfront = good balance). Needs Fargate too? → Compute Savings Plan.
+      </div>
+      <div class="callout exam">
+        <span class="label">Placement groups</span>
+        Lowest latency / HPC / 10 Gbps between instances → Cluster PG (same rack, same AZ). Fault tolerance for critical instances → Spread PG (max 7/AZ, different hardware). HDFS, large distributed clusters → Partition PG (isolated partitions).
+      </div>
+      <div class="callout exam">
+        <span class="label">AMI and user data</span>
+        User data runs once on first boot — it's not for recurring config. For recurring config management → Systems Manager (SSM) or configuration management tools. AMIs bake the software in; user data bootstraps the instance.
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">ENI exam patterns</div>
+      <div class="callout exam">
+        <span class="label">ENI for IP failover</span>
+        HA database, minimal failover disruption → move the secondary ENI (with EIP) to a standby instance. DNS-based failover has TTL issues (60s+). ENI move is near-instant. The IP follows the ENI.
+      </div>
+      <div class="callout exam">
+        <span class="label">Source/destination check</span>
+        EC2 acting as NAT instance or router and traffic isn't passing → disable source/destination check on the ENI. It's enabled by default and causes the instance to drop forwarded packets.
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">EBS exam patterns</div>
+      <div class="callout exam">
+        <span class="label">Diagnosing I/O issues</span>
+        "High I/O requirements, experiencing latency" → upgrade to io2, check EBS-Optimized is enabled. "Throughput bottleneck on large sequential files" → st1. Remember: IOPS = random small I/O. Throughput = sequential large I/O.
+      </div>
+      <div class="callout exam">
+        <span class="label">Cross-AZ volume move — 2-step</span>
+        EBS volumes are AZ-locked. To move: (1) create snapshot → (2) create new volume in target AZ from snapshot. Cross-region adds a step: copy snapshot to target region first.
+      </div>
+      <div class="callout exam">
+        <span class="label">Encrypting an unencrypted volume</span>
+        Cannot directly encrypt an existing volume. Steps: snapshot the volume → copy snapshot with encryption enabled → create encrypted volume from encrypted snapshot → detach old, attach new.
+      </div>
+      <div class="callout exam">
+        <span class="label">gp2 IOPS formula</span>
+        gp2 = 3 IOPS per GB, min 100, max 16,000. Need 16K IOPS on gp2 → need 5,333 GB. With gp3 → provision IOPS independently. Don't pay for unnecessary storage just to get IOPS.
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">EFS exam patterns</div>
+      <div class="callout exam">
+        <span class="label">The "shared file system" trigger</span>
+        Multiple EC2 instances need access to the same data → EFS. Web servers in an ASG share user uploads → EFS. Containers need shared persistent storage → EFS. Not S3 (object, not POSIX). Not EBS (single instance).
+      </div>
+      <div class="callout exam">
+        <span class="label">Cost optimization on EFS</span>
+        Reduce costs for an EFS filesystem where most data is rarely accessed → enable lifecycle policy to move to EFS-IA (or use Intelligent-Tiering). Retrieval costs apply but storage cost drops significantly.
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Quick-fire facts</div>
+      <table class="qf">
+        <tr><td>EBS max size</td><td>64 TiB (gp3, io2 Block Express)</td></tr>
+        <tr><td>EBS max IOPS</td><td>256,000 (io2 Block Express)</td></tr>
+        <tr><td>EBS max throughput</td><td>4,000 MB/s (io2 Block Express)</td></tr>
+        <tr><td>gp3 baseline</td><td>3,000 IOPS + 125 MB/s (any size)</td></tr>
+        <tr><td>EFS max throughput</td><td>3 GB/s read, 1 GB/s write (Elastic mode)</td></tr>
+        <tr><td>EFS NFS port</td><td>TCP 2049</td></tr>
+        <tr><td>Spot reclaim notice</td><td>2 minutes</td></tr>
+        <tr><td>RI max discount</td><td>~72% (Standard, 3yr, all upfront)</td></tr>
+        <tr><td>Savings Plan types</td><td>Compute SP · EC2 Instance SP · SageMaker SP</td></tr>
+        <tr><td>ENI max per instance</td><td>Varies by type; large instances up to 15</td></tr>
+        <tr><td>Hibernate max duration</td><td>60 days (root EBS must be encrypted)</td></tr>
+        <tr><td>IMDSv2 endpoint</td><td>169.254.169.254 (link-local, not routable)</td></tr>
+        <tr><td>Snapshot storage</td><td>S3 (managed by AWS, incremental after first)</td></tr>
+        <tr><td>EBS Multi-Attach limit</td><td>16 Nitro instances, same AZ, io1/io2 only</td></tr>
+        <tr><td>EFS One Zone savings</td><td>Up to 47% vs EFS Standard</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <p>AWS Solutions Architect Notes · EC2 · ENI · EBS · EFS</p>
+  <p style="margin-top:6px;">Open source · <a href="https://github.com" target="_blank">Contribute on GitHub</a> · SAA-C03 · Updated 2026</p>
+</footer>
+
+<script>
+  function showTab(id, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    btn.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
