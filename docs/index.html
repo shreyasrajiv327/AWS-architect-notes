@@ -480,7 +480,7 @@
   <ul class="nav-links">
     <li><a href="#chapters">Chapters</a></li>
     <li><a href="#about">About</a></li>
-    <li><a href="https://github.com/shreyasrajiv327@gmail.com" target="_blank">GitHub</a></li>
+    <li><a href="https://github.com" target="_blank">GitHub</a></li>
   </ul>
 </nav>
 
@@ -516,8 +516,8 @@
   <!-- Progress -->
   <div class="progress-strip fade-in" id="chapters">
     <div class="progress-stat">
-      <span class="num">1</span>
-      <span class="label">Chapter done</span>
+      <span class="num">2</span>
+      <span class="label">Chapters done</span>
     </div>
     <div class="progress-divider"></div>
     <div class="progress-stat">
@@ -528,7 +528,7 @@
     <div class="progress-bar-wrap">
       <div class="progress-bar-label">
         <span>Study progress</span>
-        <span>1 of 10 chapters</span>
+        <span>2 of 11 chapters</span>
       </div>
       <div class="progress-bar-track">
         <div class="progress-bar-fill" id="progress-fill"></div>
@@ -673,21 +673,41 @@
       </div>
     </div>
 
-    <!-- Chapter 07 -->
-    <div class="chapter-card coming-soon">
+    <!-- Chapter 07 Part 1 — Available -->
+    <a class="chapter-card available" href="ha-load-balancing.html">
       <div class="card-top">
-        <span class="card-chapter-num">Chapter 07</span>
-        <span class="card-status status-soon">Coming soon</span>
+        <span class="card-chapter-num">Chapter 07 · Part 1</span>
+        <span class="card-status status-available">Available</span>
       </div>
       <div class="card-body">
-        <div class="card-title">High Availability &amp; Scaling</div>
-        <p class="card-desc">Auto Scaling Groups, ALB vs NLB vs GWLB, Route 53 routing policies, CloudFront, and Global Accelerator.</p>
+        <div class="card-title">Load Balancing</div>
+        <p class="card-desc">ALB (Layer 7 content routing, SNI, auth), NLB (static IPs, UDP, sub-ms latency), and GWLB (transparent security inspection). Exam traps included.</p>
       </div>
       <div class="card-tags">
         <span class="tag">ALB</span>
+        <span class="tag">NLB</span>
+        <span class="tag">GWLB</span>
+      </div>
+      <div class="card-footer">
+        <span class="card-meta">Mar 2026 · ~40 min read</span>
+        <span class="card-arrow">↗</span>
+      </div>
+    </a>
+
+    <!-- Chapter 07 Part 2 — Coming soon -->
+    <div class="chapter-card coming-soon">
+      <div class="card-top">
+        <span class="card-chapter-num">Chapter 07 · Part 2</span>
+        <span class="card-status status-soon">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Auto Scaling Groups</div>
+        <p class="card-desc">ELB internals, ASG scaling policies (target tracking, step, scheduled), lifecycle hooks, warm pools, and mixed instance types with Spot.</p>
+      </div>
+      <div class="card-tags">
         <span class="tag">ASG</span>
-        <span class="tag">Route 53</span>
-        <span class="tag">CloudFront</span>
+        <span class="tag">ELB</span>
+        <span class="tag">Scaling Policies</span>
       </div>
       <div class="card-footer">
         <span class="card-meta">In progress</span>
@@ -767,7 +787,7 @@
     </div>
     <div class="about-block">
       <h3>Contribute</h3>
-      <p>Found an error, have a better explanation, or want to add a chapter? These notes are open source. <a href="https://github.com/shreyasrajiv327/AWS-architect-notes" target="_blank">Open a PR on GitHub</a> — all contributions are welcome. Let's make this the best free AWS SA resource out there.</p>
+      <p>Found an error, have a better explanation, or want to add a chapter? These notes are open source. <a href="https://github.com" target="_blank">Open a PR on GitHub</a> — all contributions are welcome. Let's make this the best free AWS SA resource out there.</p>
     </div>
   </div>
 
@@ -776,7 +796,7 @@
 <!-- ── FOOTER ── -->
 <footer>
   <p>© 2026 Shreyas Rajiv · AWS SA Notes</p>
-  <p><a href="https://github.com/shreyasrajiv327/AWS-architect-notes" target="_blank">GitHub</a> &nbsp;·&nbsp; SAA-C03 &nbsp;·&nbsp; Open Source</p>
+  <p><a href="https://github.com" target="_blank">GitHub</a> &nbsp;·&nbsp; SAA-C03 &nbsp;·&nbsp; Open Source</p>
 </footer>
 
 <script>
@@ -794,7 +814,7 @@
 
   // Animate progress bar on load
   setTimeout(() => {
-    document.getElementById('progress-fill').style.width = '11%';
+    document.getElementById('progress-fill').style.width = '18%';
   }, 600);
 </script>
 </body>

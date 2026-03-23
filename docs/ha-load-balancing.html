@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>High Availability — Load Balancing | AWS SA Notes · Shreyas Rajiv</title>
+<meta name="description" content="ALB, NLB, and Gateway Load Balancer — deep notes for AWS Solutions Architect exam and production use. By Shreyas Rajiv.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:        #1A1916;
+    --ink-2:      #5C5A55;
+    --ink-3:      #9C9A94;
+    --paper:      #F8F6F1;
+    --paper-2:    #EFEDE6;
+    --paper-3:    #E5E2D9;
+    --gold:       #B08D57;
+    --gold-light: #F0E8D8;
+    --rule:       rgba(26,25,22,0.10);
+    --rule-med:   rgba(26,25,22,0.18);
+    /* accent per LB type */
+    --alb:        #2563A8;
+    --alb-light:  #EBF2FB;
+    --nlb:        #1A7D5B;
+    --nlb-light:  #E6F5EF;
+    --gwlb:       #7B4FA6;
+    --gwlb-light: #F2EDFB;
+    --warn:       #96580A;
+    --warn-light: #FEF3E2;
+    --tip:        #1A7D5B;
+    --tip-light:  #E6F5EF;
+    --r:          8px;
+    --r-lg:       14px;
+  }
+
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--rule) 1px, transparent 1px),
+      linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.45;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 48px; height: 60px;
+    background: rgba(248,246,241,0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .nav-brand {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3);
+    text-decoration: none;
+  }
+  .nav-brand strong { color: var(--ink); font-weight: 500; }
+  .nav-right {
+    display: flex; align-items: center; gap: 24px;
+  }
+  .nav-chapter {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--gold); letter-spacing: 0.08em;
+    background: var(--gold-light); padding: 4px 10px;
+    border-radius: 99px; border: 1px solid rgba(176,141,87,0.22);
+  }
+  .nav-back {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--ink-3); text-decoration: none; letter-spacing: 0.06em;
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--ink); }
+
+  /* ── PAGE WRAPPER ── */
+  .page { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 0 40px; }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 110px 0 64px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 72px;
+    animation: rise 0.7s ease both;
+  }
+  .hero-crumb {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 24px;
+  }
+  .crumb-sep { opacity: 0.4; }
+  .crumb-active { color: var(--gold); }
+  .hero h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: clamp(40px, 6vw, 72px);
+    line-height: 1.05; letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+  .hero h1 em { font-style: italic; color: var(--ink-2); }
+  .hero-sub {
+    font-size: 14px; color: var(--ink-2); max-width: 580px;
+    line-height: 1.75; margin-bottom: 32px;
+  }
+  .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .hero-tag {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    padding: 4px 12px; border-radius: 99px;
+    border: 1px solid var(--rule-med); color: var(--ink-3);
+    letter-spacing: 0.06em;
+  }
+  .hero-tag.alb  { color: var(--alb);  background: var(--alb-light);  border-color: rgba(37,99,168,0.2); }
+  .hero-tag.nlb  { color: var(--nlb);  background: var(--nlb-light);  border-color: rgba(26,125,91,0.2); }
+  .hero-tag.gwlb { color: var(--gwlb); background: var(--gwlb-light); border-color: rgba(123,79,166,0.2); }
+
+  /* ── PART DIVIDER ── */
+  .part-divider {
+    display: flex; align-items: center; gap: 16px;
+    margin: 72px 0 40px;
+  }
+  .part-line { flex: 1; height: 1px; background: var(--rule); }
+  .part-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 30px; font-weight: 400; letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+  .part-label .accent-alb  { color: var(--alb); }
+  .part-label .accent-nlb  { color: var(--nlb); }
+  .part-label .accent-gwlb { color: var(--gwlb); }
+  .part-num {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--ink-3); letter-spacing: 0.1em;
+  }
+
+  /* ── SECTION ── */
+  .section { margin-bottom: 40px; }
+  .section-title {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3);
+    margin-bottom: 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* ── OVERVIEW CARD ── */
+  .overview-card {
+    border-radius: var(--r-lg); border: 1px solid;
+    padding: 24px 28px; margin-bottom: 24px;
+  }
+  .overview-card.alb-card  { border-color: rgba(37,99,168,0.2); background: var(--alb-light); }
+  .overview-card.nlb-card  { border-color: rgba(26,125,91,0.2); background: var(--nlb-light); }
+  .overview-card.gwlb-card { border-color: rgba(123,79,166,0.2); background: var(--gwlb-light); }
+  .overview-card h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px; font-weight: 500; margin-bottom: 8px;
+  }
+  .overview-card.alb-card h3  { color: var(--alb); }
+  .overview-card.nlb-card h3  { color: var(--nlb); }
+  .overview-card.gwlb-card h3 { color: var(--gwlb); }
+  .overview-card p { font-size: 13px; color: var(--ink-2); line-height: 1.7; }
+  .overview-card strong { color: var(--ink); font-weight: 500; }
+
+  /* ── CARDS GRID ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card {
+    background: #fff; border: 1px solid var(--rule);
+    border-radius: var(--r-lg); padding: 18px 20px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .card:hover { border-color: var(--rule-med); box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+  .card-title { font-size: 13px; font-weight: 500; margin-bottom: 7px; }
+  .card p { font-size: 12.5px; color: var(--ink-2); line-height: 1.65; }
+  .card p strong { color: var(--ink); font-weight: 500; }
+  .card-dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; margin-right: 8px; flex-shrink: 0;
+    vertical-align: middle;
+  }
+
+  /* ── KV TABLE ── */
+  .kv { width: 100%; border-collapse: collapse; }
+  .kv tr { border-bottom: 1px solid var(--rule); }
+  .kv tr:last-child { border-bottom: none; }
+  .kv td { padding: 10px 0; font-size: 13px; vertical-align: top; }
+  .kv td:first-child {
+    color: var(--ink-2); width: 34%; padding-right: 20px;
+    font-weight: 500; font-size: 12px; font-family: 'DM Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+  .kv td code {
+    font-family: 'DM Mono', monospace; font-size: 11.5px;
+    background: var(--paper-2); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 1px 6px;
+  }
+  .kv td strong { font-weight: 500; }
+  .kv td ul { padding-left: 16px; }
+  .kv td ul li { margin-top: 4px; font-size: 12.5px; color: var(--ink-2); line-height: 1.6; }
+  .kv td ul li strong { color: var(--ink); }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    border-left: 3px solid; padding: 12px 18px;
+    border-radius: 0 var(--r) var(--r) 0; margin-bottom: 12px;
+    font-size: 13px; line-height: 1.7;
+  }
+  .callout .label {
+    font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    display: block; margin-bottom: 5px;
+  }
+  .callout strong { font-weight: 500; }
+  .callout.exam  { border-color: var(--gwlb); background: var(--gwlb-light); color: #4a2d6e; }
+  .callout.prod  { border-color: var(--alb);  background: var(--alb-light);  color: #153d6e; }
+  .callout.warn  { border-color: var(--warn); background: var(--warn-light); color: var(--warn); }
+  .callout.tip   { border-color: var(--nlb);  background: var(--nlb-light);  color: #0f4d38; }
+
+  /* ── COMPARE TABLE ── */
+  .cmp-wrap { overflow-x: auto; border-radius: var(--r-lg); border: 1px solid var(--rule); margin-bottom: 24px; }
+  .cmp { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 580px; }
+  .cmp th {
+    text-align: left; padding: 10px 16px;
+    font-weight: 500; font-family: 'DM Mono', monospace; font-size: 10.5px;
+    letter-spacing: 0.06em; background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+  }
+  .cmp th.h-alb  { background: var(--alb-light);  color: var(--alb); }
+  .cmp th.h-nlb  { background: var(--nlb-light);  color: var(--nlb); }
+  .cmp th.h-gwlb { background: var(--gwlb-light); color: var(--gwlb); }
+  .cmp td { padding: 9px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .cmp tr:last-child td { border-bottom: none; }
+  .cmp td:first-child { font-weight: 500; color: var(--ink-2); font-size: 11.5px; font-family: 'DM Mono', monospace; }
+
+  /* ── SCENARIO CARDS ── */
+  .scenarios { display: flex; flex-direction: column; gap: 10px; }
+  .scenario {
+    background: #fff; border: 1px solid var(--rule);
+    border-radius: var(--r); padding: 14px 18px;
+    transition: border-color 0.15s;
+  }
+  .scenario:hover { border-color: var(--rule-med); }
+  .scenario-q { font-size: 13px; font-weight: 500; color: var(--ink-2); margin-bottom: 5px; }
+  .scenario-a { font-size: 13px; line-height: 1.6; }
+  .scenario-a b { font-weight: 500; }
+  .b-alb  { color: var(--alb); }
+  .b-nlb  { color: var(--nlb); }
+  .b-gwlb { color: var(--gwlb); }
+
+  /* ── LISTENER RULES VISUAL ── */
+  .rules-visual {
+    background: #fff; border: 1px solid var(--rule);
+    border-radius: var(--r-lg); overflow: hidden; margin-bottom: 24px;
+  }
+  .rules-header {
+    padding: 12px 20px; background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--ink-3); letter-spacing: 0.08em;
+  }
+  .rule-row {
+    display: grid; grid-template-columns: 40px 1fr 24px 1fr;
+    align-items: center; gap: 12px;
+    padding: 12px 20px; border-bottom: 1px solid var(--rule);
+    font-size: 12.5px;
+  }
+  .rule-row:last-child { border-bottom: none; }
+  .rule-num {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--ink-3); font-weight: 500;
+  }
+  .rule-cond {
+    background: var(--alb-light); color: var(--alb);
+    padding: 4px 10px; border-radius: 6px;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    border: 1px solid rgba(37,99,168,0.15);
+  }
+  .rule-cond.path { background: var(--nlb-light); color: var(--nlb); border-color: rgba(26,125,91,0.15); }
+  .rule-cond.header { background: var(--gwlb-light); color: var(--gwlb); border-color: rgba(123,79,166,0.15); }
+  .rule-cond.query { background: var(--warn-light); color: var(--warn); border-color: rgba(150,88,10,0.15); }
+  .rule-arrow { color: var(--ink-3); text-align: center; font-size: 14px; }
+  .rule-target { font-size: 12.5px; color: var(--ink-2); }
+  .rule-target strong { color: var(--ink); font-weight: 500; }
+
+  /* ── QUICKFIRE ── */
+  .qf { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .qf tr { border-bottom: 1px solid var(--rule); }
+  .qf tr:last-child { border-bottom: none; }
+  .qf td { padding: 9px 0; vertical-align: top; }
+  .qf td:first-child {
+    color: var(--ink-2); width: 42%;
+    font-weight: 500; padding-right: 20px;
+    font-family: 'DM Mono', monospace; font-size: 11.5px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── PART COMPLETE BANNER ── */
+  .part-banner {
+    background: var(--paper-2); border: 1px solid var(--rule);
+    border-radius: var(--r-lg); padding: 20px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 56px 0 0; flex-wrap: wrap; gap: 12px;
+  }
+  .part-banner p { font-size: 13px; color: var(--ink-2); }
+  .part-banner p strong { color: var(--ink); font-weight: 500; }
+  .banner-pill {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--gold); background: var(--gold-light);
+    padding: 6px 14px; border-radius: 99px;
+    border: 1px solid rgba(176,141,87,0.25);
+    white-space: nowrap;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative; z-index: 1;
+    border-top: 1px solid var(--rule);
+    padding: 28px 40px;
+    display: flex; justify-content: space-between; align-items: center;
+    max-width: 960px; margin: 60px auto 0; flex-wrap: wrap; gap: 8px;
+  }
+  footer p { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  footer a { color: var(--ink-2); text-decoration: none; }
+  footer a:hover { color: var(--ink); }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in { opacity: 0; transform: translateY(18px); transition: opacity 0.55s ease, transform 0.55s ease; }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+  @media (max-width: 680px) {
+    nav { padding: 0 20px; }
+    .page { padding: 0 20px; }
+    footer { padding: 24px 20px; }
+    .hero { padding: 90px 0 48px; }
+    .rule-row { grid-template-columns: 1fr; gap: 6px; }
+    .rule-arrow { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="index.html">
+    <strong>Shreyas Rajiv</strong> &nbsp;/&nbsp; AWS SA Notes
+  </a>
+  <div class="nav-right">
+    <span class="nav-chapter">Chapter 07 · Part 1</span>
+    <a class="nav-back" href="index.html">← All chapters</a>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- ── HERO ── -->
+  <header class="hero">
+    <div class="hero-crumb">
+      <span>Chapter 07</span>
+      <span class="crumb-sep">/</span>
+      <span>High Availability &amp; Scalability</span>
+      <span class="crumb-sep">/</span>
+      <span class="crumb-active">Load Balancing</span>
+    </div>
+    <h1>Load<br><em>Balancing</em><br>on AWS</h1>
+    <p class="hero-sub">
+      Application Load Balancer, Network Load Balancer, and Gateway Load Balancer — how each one works, when to use which, and what the exam will try to trick you with. Part 2 (ELB internals + Auto Scaling Groups) coming tomorrow.
+    </p>
+    <div class="hero-tags">
+      <span class="hero-tag alb">ALB · Layer 7</span>
+      <span class="hero-tag nlb">NLB · Layer 4</span>
+      <span class="hero-tag gwlb">GWLB · Layer 3</span>
+      <span class="hero-tag">Stephane Maarek · SAA-C03</span>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 0 — ELB FOUNDATIONS
+  ═══════════════════════════════════════════ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§0</span>
+    <div class="part-line"></div>
+    <h2 class="part-label">Why Load Balancers?</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">The core problems ELB solves</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-title">Single point of failure</div>
+        <p>Without a load balancer, one DNS entry points to one server. That server fails → entire app is down. A load balancer acts as the stable entry point and routes around failures automatically.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Horizontal scaling</div>
+        <p>Adding more servers ("scaling out") only helps if traffic can actually reach them. The load balancer distributes incoming connections across all healthy instances in a target group.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Health checking</div>
+        <p>ELB continuously pings each target on a configured path/port. Unhealthy targets are removed from rotation automatically — no manual intervention, no downtime from a bad deploy.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">SSL/TLS termination</div>
+        <p>Terminate HTTPS at the load balancer. Backend instances only handle plain HTTP. One certificate to manage, not N. Use ACM (AWS Certificate Manager) for free auto-renewing certs.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Stickiness / session affinity</div>
+        <p>Option to pin a user's requests to the same backend instance for the duration of a session. Cookie-based (app or duration cookie). Useful for stateful legacy apps that can't share session state.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Cross-zone load balancing</div>
+        <p>Distribute traffic evenly across <strong>all</strong> registered targets in <strong>all</strong> AZs — not just the AZ the request landed in. Prevents hot AZs when instance counts differ per AZ.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <span class="label">Managed service — this matters for the exam</span>
+      AWS manages the ELB fleet. You don't patch, scale, or maintain the load balancer nodes. AWS guarantees high availability of the ELB itself. The only thing you manage is config: listeners, target groups, rules, health checks. "Undifferentiated heavy lifting" — classic Stephane framing.
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">Health checks — the foundation of everything</div>
+    <table class="kv">
+      <tr><td>How it works</td><td>ELB sends a request to each target on a specified <strong>protocol, port, and path</strong> every N seconds. If the response is not a 200 (or a configured success range), the target is marked unhealthy and taken out of rotation.</td></tr>
+      <tr><td>Key settings</td><td>
+        <ul>
+          <li><strong>Protocol:</strong> HTTP, HTTPS, TCP, gRPC</li>
+          <li><strong>Path:</strong> e.g. <code>/health</code> — must return 200 fast</li>
+          <li><strong>Interval:</strong> 5–300s (default 30s)</li>
+          <li><strong>Healthy threshold:</strong> consecutive successes to mark healthy (default 3)</li>
+          <li><strong>Unhealthy threshold:</strong> consecutive failures to mark unhealthy (default 3)</li>
+          <li><strong>Timeout:</strong> how long to wait per check (must be &lt; interval)</li>
+        </ul>
+      </td></tr>
+      <tr><td>Production tip</td><td>Your <code>/health</code> endpoint should be <strong>lightweight and truthful</strong>. It should check DB connectivity and critical dependencies — not just return 200 blindly. A 200 from a broken app is worse than a 500 (ELB will keep sending traffic to a broken instance).</td></tr>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 1 — ALB
+  ═══════════════════════════════════════════ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§1</span>
+    <div class="part-line"></div>
+    <h2 class="part-label"><span class="accent-alb">Application</span> Load Balancer</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="overview-card alb-card">
+      <h3>ALB — Layer 7 (HTTP/HTTPS/gRPC/WebSocket)</h3>
+      <p>ALB understands the <strong>content of the request</strong> — URL path, host header, query strings, HTTP method, source IP. It makes routing decisions based on this context. This is the right choice for <strong>virtually all modern web applications and microservices</strong>. It's the most feature-rich AWS load balancer.</p>
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">Routing rules — the superpower of ALB</div>
+    <p style="font-size:13px; color:var(--ink-2); margin-bottom:16px; line-height:1.7;">
+      ALB listener rules are evaluated <strong>in priority order</strong> (lowest number first). The first matching rule wins. Each rule has conditions and an action (forward, redirect, fixed-response, authenticate).
+    </p>
+    <div class="rules-visual">
+      <div class="rules-header">Listener: HTTPS :443 — Rule evaluation order</div>
+      <div class="rule-row">
+        <span class="rule-num">P: 1</span>
+        <span class="rule-cond header">Host: api.example.com</span>
+        <span class="rule-arrow">→</span>
+        <span class="rule-target">Forward → <strong>api-service TG</strong> (ECS containers, port 8080)</span>
+      </div>
+      <div class="rule-row">
+        <span class="rule-num">P: 2</span>
+        <span class="rule-cond path">Path: /images/*</span>
+        <span class="rule-arrow">→</span>
+        <span class="rule-target">Forward → <strong>static-assets TG</strong> (S3 / CDN origin instances)</span>
+      </div>
+      <div class="rule-row">
+        <span class="rule-num">P: 3</span>
+        <span class="rule-cond query">Query: ?version=v2</span>
+        <span class="rule-arrow">→</span>
+        <span class="rule-target">Forward → <strong>v2-canary TG</strong> (weighted: 10% new, 90% stable)</span>
+      </div>
+      <div class="rule-row">
+        <span class="rule-num">P: 4</span>
+        <span class="rule-cond">HTTP: GET + /admin/*</span>
+        <span class="rule-arrow">→</span>
+        <span class="rule-target">Authenticate (Cognito) → Forward → <strong>admin-service TG</strong></span>
+      </div>
+      <div class="rule-row">
+        <span class="rule-num">Default</span>
+        <span class="rule-cond">Everything else</span>
+        <span class="rule-arrow">→</span>
+        <span class="rule-target">Forward → <strong>web-app TG</strong> (main application)</span>
+      </div>
+    </div>
+
+    <table class="kv">
+      <tr><td>Condition types</td><td>
+        <ul>
+          <li><strong>Host-based:</strong> Route subdomains to different services (<code>api.*</code> → API, <code>app.*</code> → frontend)</li>
+          <li><strong>Path-based:</strong> Route URL prefixes (<code>/api/*</code> → API service, <code>/checkout/*</code> → checkout microservice)</li>
+          <li><strong>HTTP header:</strong> Match any request header value (e.g. custom feature-flag header)</li>
+          <li><strong>HTTP method:</strong> Route GET vs POST differently (e.g. reads vs writes to different clusters)</li>
+          <li><strong>Query string:</strong> Route based on query params (<code>?platform=mobile</code> → mobile API)</li>
+          <li><strong>Source IP:</strong> Route internal vs external IPs to different backends</li>
+        </ul>
+      </td></tr>
+      <tr><td>Action types</td><td>
+        <ul>
+          <li><strong>Forward:</strong> Send to one or more target groups (with weights for canary releases)</li>
+          <li><strong>Redirect:</strong> HTTP → HTTPS, domain changes, path changes (301/302)</li>
+          <li><strong>Fixed response:</strong> Return a static response directly from ELB (useful for maintenance pages or health endpoints)</li>
+          <li><strong>Authenticate:</strong> Integrate with Cognito or OIDC provider before forwarding</li>
+        </ul>
+      </td></tr>
+    </table>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">Target groups</div>
+    <table class="kv">
+      <tr><td>Target types</td><td>EC2 instances (by instance ID), IP addresses (any IP — even on-premises via Direct Connect/VPN), Lambda functions, other ALBs. Each target group has its own health check config.</td></tr>
+      <tr><td>Weighted routing</td><td>One listener rule can forward to multiple target groups with weights. e.g. 90% to stable, 10% to canary. No DNS TTL waiting — change weights live. Essential for blue/green and canary deployments.</td></tr>
+      <tr><td>ECS integration</td><td>ECS registers and deregisters tasks directly with target groups. Dynamic port mapping — multiple tasks on one EC2 host, each on a different ephemeral port. The TG handles it automatically.</td></tr>
+      <tr><td>Lambda targets</td><td>Invoke Lambda directly via ALB. ALB converts HTTP request to JSON event. Lambda returns a JSON response which ALB converts back to HTTP. Fully serverless request handling with ALB routing logic in front.</td></tr>
+    </table>
+
+    <div class="callout exam">
+      <span class="label">Exam — ALB cannot see client IP directly at the instance</span>
+      ALB terminates the connection and creates a new one to the backend. The backend sees the <strong>ALB's private IP</strong> as source, not the client IP. The real client IP is forwarded in the <strong>X-Forwarded-For</strong> header. Also: <code>X-Forwarded-Port</code> (original port) and <code>X-Forwarded-Proto</code> (original protocol). Your app must read these headers for client IP-based logic.
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">ALB key features</div>
+    <table class="kv">
+      <tr><td>WebSocket support</td><td>Native. ALB upgrades the HTTP connection to WS and maintains the persistent connection. No special config — just target the backend port. Crucial for real-time apps (chat, live dashboards).</td></tr>
+      <tr><td>HTTP/2</td><td>Between client and ALB only. ALB converts to HTTP/1.1 for backend communication (unless backend also supports H/2 and you enable it). Improves browser performance without requiring backend changes.</td></tr>
+      <tr><td>gRPC</td><td>ALB understands gRPC — it can route, health-check, and load-balance gRPC services. Use for microservices that communicate over gRPC.</td></tr>
+      <tr><td>Sticky sessions</td><td>Cookie-based. ALB inserts an <code>AWSALB</code> cookie. <strong>Duration-based</strong> (you set TTL) or <strong>Application-based</strong> (your app sets the cookie, ALB reads it). Stickiness breaks even distribution — avoid if possible, use shared session stores (ElastiCache) instead.</td></tr>
+      <tr><td>SSL/TLS + SNI</td><td>ALB supports <strong>Server Name Indication (SNI)</strong> — multiple SSL certs on a single ALB listener (one cert per domain). No need for multiple ALBs for multi-tenant or multi-domain apps. Certificates via ACM (free auto-renew).</td></tr>
+      <tr><td>Auth integration</td><td>Native Cognito User Pool integration and OIDC (Google, Facebook, Okta). Authenticate at the load balancer — zero code changes in your app. Returns user identity in headers after auth.</td></tr>
+      <tr><td>Access logs</td><td>Detailed logs per request to S3: client IP, latency, request path, backend response code, SSL cipher, etc. Essential for debugging and forensics. Not enabled by default — turn on in production.</td></tr>
+    </table>
+
+    <div class="callout prod">
+      <span class="label">Production pattern — ALB as microservices API gateway</span>
+      One ALB, multiple target groups. Host-based rules route <code>api.app.com</code> to one ECS service, <code>app.com</code> to another. Path-based rules subdivide further (<code>/auth/*</code> → auth service, <code>/orders/*</code> → orders service). Add Cognito auth at the ALB for protected routes. Weighted forwarding for canary deploys. This replaces a lot of what people build custom API gateways for.
+    </div>
+    <div class="callout warn">
+      <span class="label">ALB is not for ultra-low-latency or non-HTTP</span>
+      ALB adds ~1–5ms latency (it's a full proxy). For UDP, raw TCP, sub-millisecond latency, or non-HTTP protocols — use NLB. ALB also doesn't support Elastic IPs or a static IP (you get a DNS name that resolves to changing IPs).
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 2 — NLB
+  ═══════════════════════════════════════════ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§2</span>
+    <div class="part-line"></div>
+    <h2 class="part-label"><span class="accent-nlb">Network</span> Load Balancer</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="overview-card nlb-card">
+      <h3>NLB — Layer 4 (TCP / UDP / TLS)</h3>
+      <p>NLB operates at the transport layer. It <strong>does not look inside the packet</strong> — it just routes based on IP and port. This makes it <strong>blazing fast</strong> — millions of requests per second, sub-millisecond latency, no added overhead. The right choice when you need raw performance, static IPs, or non-HTTP protocols.</p>
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">NLB key characteristics</div>
+    <table class="kv">
+      <tr><td>Performance</td><td>Handles <strong>millions of requests per second</strong>. Latency as low as ~100µs. NLB nodes don't terminate connections — they pass TCP/UDP flows through with minimal processing. AWS recommends NLB for extreme throughput workloads.</td></tr>
+      <tr><td>Static IPs</td><td>Each NLB node in an AZ gets a <strong>fixed Elastic IP</strong>. This is the most important NLB feature for enterprise and compliance scenarios: firewall rules, IP allowlists, third-party integrations that require stable IPs. ALB only gives you a DNS name.</td></tr>
+      <tr><td>Client IP preservation</td><td>NLB <strong>passes the original client IP directly</strong> to the backend (unlike ALB which proxies and adds X-Forwarded-For). The backend sees the real source IP on the socket. For TCP targets, configure security groups to allow the client IPs. For instance targets in same VPC, client IP visible. For IP targets, configure properly.</td></tr>
+      <tr><td>Protocols</td><td>TCP, UDP, TCP_UDP, TLS. Covers everything ALB doesn't: DNS (UDP 53), gaming (UDP), IoT protocols, raw TCP services, custom binary protocols.</td></tr>
+      <tr><td>TLS termination</td><td>NLB can terminate TLS (like ALB). Also supports <strong>TLS passthrough</strong> — forward encrypted traffic straight to backend without decrypting. Use passthrough when end-to-end encryption to the app is required (compliance, mTLS).</td></tr>
+      <tr><td>Cross-zone LB</td><td>Disabled by default (unlike ALB where it's on by default). When disabled: traffic in AZ-A only goes to targets in AZ-A. When enabled: traffic distributes across all AZs. <strong>Data transfer charges apply</strong> when cross-zone is enabled on NLB.</td></tr>
+      <tr><td>Zonal isolation</td><td>Because NLB has per-AZ static IPs, you can route AZ-specific traffic explicitly. Powerful for latency-sensitive architectures where you want to minimize cross-AZ hops.</td></tr>
+    </table>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">NLB target groups</div>
+    <table class="kv">
+      <tr><td>Target types</td><td>EC2 instances, IP addresses, ALB. Yes — you can put an ALB behind an NLB. This gives you NLB's static IPs at the entry point with ALB's routing capabilities behind it. Classic pattern for enterprise use.</td></tr>
+      <tr><td>NLB → ALB pattern</td><td>NLB provides: fixed IPs, ultra-fast entry, TLS passthrough option. ALB provides: host/path routing, Cognito auth, header inspection. Together: static IP entry + intelligent routing. Very common for B2B APIs where clients need stable IPs to allowlist.</td></tr>
+      <tr><td>Health checks</td><td>TCP, HTTP, HTTPS. For TCP: just checks if the port is open (connection established). For HTTP/HTTPS: checks response code. TCP health checks are faster and simpler but less meaningful — prefer HTTP/HTTPS if your app supports it.</td></tr>
+      <tr><td>Security groups</td><td>NLB itself doesn't have a security group (it passes traffic transparently). EC2 instances in NLB target groups must allow the <strong>client IPs</strong> directly in their SGs (or <code>0.0.0.0/0</code> for public NLB). This is a common gotcha.</td></tr>
+    </table>
+
+    <div class="callout exam">
+      <span class="label">Exam — NLB has no security group</span>
+      ALB has a security group. NLB does NOT. Traffic flows through NLB transparently. Backend EC2 instances must allow client IPs (or <code>0.0.0.0/0</code> for internet-facing). If a question says "EC2 instances behind NLB are not receiving traffic" — check the instance SG, not an NLB SG (it doesn't exist).
+    </div>
+    <div class="callout exam">
+      <span class="label">Exam — static IP = NLB</span>
+      Whenever the scenario mentions: "clients need to whitelist the load balancer IP", "firewall rules require a fixed IP", "third-party service requires a static endpoint" → the answer is <strong>NLB</strong> (with Elastic IPs per AZ). ALB only provides a DNS hostname with changing IPs.
+    </div>
+    <div class="callout prod">
+      <span class="label">Production pattern — NLB for gaming / IoT</span>
+      Game servers, IoT MQTT brokers, VoIP — all UDP or custom TCP. NLB handles UDP natively at millions of connections per second. Configure UDP listeners, set health checks to TCP (since UDP is connectionless and harder to health-check), and use IP target groups for maximum flexibility.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 3 — GWLB
+  ═══════════════════════════════════════════ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§3</span>
+    <div class="part-line"></div>
+    <h2 class="part-label"><span class="accent-gwlb">Gateway</span> Load Balancer</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="overview-card gwlb-card">
+      <h3>GWLB — Layer 3 (IP Packets)</h3>
+      <p>GWLB is fundamentally different from ALB and NLB. It doesn't load-balance your application traffic to make it more available. Instead, it <strong>invisibly inserts a fleet of network appliances into the traffic path</strong> — firewalls, IDS/IPS, deep packet inspection tools — before traffic reaches your application. Think of it as a transparent bump-in-the-wire at scale.</p>
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">How GWLB works — the traffic flow</div>
+    <table class="kv">
+      <tr><td>The problem it solves</td><td>You want all ingress (and/or egress) traffic to pass through a 3rd-party security appliance (Palo Alto, Fortinet, Check Point, etc.) for inspection. Without GWLB, this is complex — you'd need to manually route traffic to the appliance and back. GWLB automates this transparently.</td></tr>
+      <tr><td>GENEVE protocol</td><td>GWLB uses the <strong>GENEVE</strong> tunnelling protocol (port 6081) to encapsulate original packets and send them to appliance instances. The appliance sees the original src/dst IPs (not tunnel IPs), inspects the packet, and returns it. GWLB then forwards to the actual destination. All transparent to both sender and receiver.</td></tr>
+      <tr><td>Traffic flow</td><td>
+        <ul>
+          <li><strong>Ingress:</strong> Internet → GWLB → (encapsulate) → security appliance fleet → (pass/drop) → (decapsulate) → your application</li>
+          <li><strong>Egress:</strong> Your app → GWLB → security appliance fleet → Internet (for outbound inspection)</li>
+          <li>Traffic is returned to GWLB for forwarding — the appliance doesn't route it itself</li>
+        </ul>
+      </td></tr>
+      <tr><td>Gateway Load Balancer Endpoint (GWLBE)</td><td>A VPC endpoint (powered by PrivateLink) that you place in your VPC's route tables. Traffic destined for your app is redirected to the GWLBE → GWLB → appliances → back to app. The app sees nothing different.</td></tr>
+      <tr><td>Appliance target group</td><td>The security appliances (EC2 instances running firewall software) register in the GWLB target group. GWLB load balances across the appliance fleet for HA and scalability. Add more instances to scale inspection throughput.</td></tr>
+    </table>
+
+    <div class="callout exam">
+      <span class="label">Exam — GWLB is for transparent network inspection, not app load balancing</span>
+      If the question mentions: 3rd-party firewalls, IDS/IPS, deep packet inspection, traffic inspection before reaching the app, inserting security appliances into traffic path — the answer is <strong>GWLB</strong>. It operates at Layer 3 (IP), not Layer 7 (HTTP) or Layer 4 (TCP). It uses GENEVE protocol on port 6081.
+    </div>
+    <div class="callout prod">
+      <span class="label">Production pattern — centralized security inspection VPC</span>
+      Typical enterprise architecture: a dedicated "security VPC" with a GWLB and your appliance fleet. All spoke VPCs route internet-bound and inbound traffic through the security VPC via Transit Gateway + GWLB endpoints. Centralized inspection, single fleet to manage, scales independently of applications.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 4 — COMPARISON
+  ═══════════════════════════════════════════ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§4</span>
+    <div class="part-line"></div>
+    <h2 class="part-label">Side-by-Side</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">ALB vs NLB vs GWLB</div>
+    <div class="cmp-wrap">
+      <table class="cmp">
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            <th class="h-alb">ALB</th>
+            <th class="h-nlb">NLB</th>
+            <th class="h-gwlb">GWLB</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>OSI Layer</td><td>Layer 7 (HTTP/S)</td><td>Layer 4 (TCP/UDP)</td><td>Layer 3 (IP packets)</td></tr>
+          <tr><td>Protocol</td><td>HTTP, HTTPS, WebSocket, gRPC</td><td>TCP, UDP, TLS</td><td>IP (all) via GENEVE tunnel</td></tr>
+          <tr><td>Routing logic</td><td>URL path, host, headers, query, method, source IP</td><td>IP + port only</td><td>Not routing your app — inspecting traffic</td></tr>
+          <tr><td>Static IPs</td><td>No (DNS name only)</td><td>Yes (Elastic IP per AZ)</td><td>Yes</td></tr>
+          <tr><td>Client IP visibility</td><td>X-Forwarded-For header</td><td>Direct (passthrough)</td><td>Preserved in GENEVE tunnel</td></tr>
+          <tr><td>Security Group</td><td>Yes</td><td>No</td><td>No</td></tr>
+          <tr><td>SSL termination</td><td>Yes (SNI, ACM)</td><td>Yes + TLS passthrough</td><td>N/A</td></tr>
+          <tr><td>Performance</td><td>High (adds ~1–5ms)</td><td>Extreme (sub-ms, M req/s)</td><td>High (transparent)</td></tr>
+          <tr><td>Cross-zone LB default</td><td>On (free)</td><td>Off (charged if enabled)</td><td>Off (charged if enabled)</td></tr>
+          <tr><td>Target types</td><td>Instance, IP, Lambda, ALB</td><td>Instance, IP, ALB</td><td>Instance, IP (appliances)</td></tr>
+          <tr><td>Use case</td><td>Web apps, microservices, APIs</td><td>Gaming, IoT, static IP, raw TCP</td><td>Firewalls, IDS/IPS, DPI</td></tr>
+          <tr><td>Use when</td><td>HTTP(S), need content routing</td><td>Need static IP, UDP, lowest latency</td><td>Need to inspect all traffic</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">Decision guide — which load balancer?</div>
+    <div class="scenarios">
+      <div class="scenario">
+        <div class="scenario-q">Standard web application behind HTTPS with multiple microservices (e.g. /api/* → API, /app/* → frontend)</div>
+        <div class="scenario-a">→ <b class="b-alb">ALB</b>. Path-based routing is native. Add HTTPS listener, ACM cert, path rules per service.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">B2B API — partner companies need to whitelist your load balancer's IP in their firewall</div>
+        <div class="scenario-a">→ <b class="b-nlb">NLB</b>. Static Elastic IPs per AZ. Partners allowlist those IPs. Put ALB behind NLB if you also need content routing.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Online multiplayer game using UDP for real-time state synchronization</div>
+        <div class="scenario-a">→ <b class="b-nlb">NLB</b>. Only load balancer that supports UDP. Sub-millisecond latency, millions of concurrent connections.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Route traffic to different environments based on subdomain (dev.app.com vs prod.app.com)</div>
+        <div class="scenario-a">→ <b class="b-alb">ALB</b> with host-based routing rules. One ALB, two target groups, one rule per subdomain.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Security compliance requires all traffic to pass through Palo Alto firewall before reaching any EC2 instance</div>
+        <div class="scenario-a">→ <b class="b-gwlb">GWLB</b>. Insert the firewall appliance fleet transparently. Traffic flows through without the app knowing.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Multi-tenant SaaS — each tenant has their own subdomain and SSL certificate</div>
+        <div class="scenario-a">→ <b class="b-alb">ALB</b> with SNI. Multiple SSL certs on one listener. Host-based rules route each subdomain to the correct tenant's target group.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Internal service that needs end-to-end TLS — traffic must be encrypted all the way to the backend</div>
+        <div class="scenario-a">→ <b class="b-nlb">NLB</b> with TLS passthrough. NLB forwards encrypted traffic without decrypting it. Backend terminates TLS itself.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-q">Canary deployment — send 5% of traffic to new version, 95% to stable</div>
+        <div class="scenario-a">→ <b class="b-alb">ALB</b> with weighted target groups on a forwarding rule. Set weights 95/5. Adjust live without DNS changes.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 5 — EXAM TIPS
+  ═══════════════════════════════════════════ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§5</span>
+    <div class="part-line"></div>
+    <h2 class="part-label">Exam Traps</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="callout exam">
+      <span class="label">Cross-zone load balancing defaults</span>
+      ALB: <strong>enabled by default, no extra charge</strong>. NLB: <strong>disabled by default, charged when enabled</strong>. GWLB: disabled by default, charged when enabled. This appears in cost-optimization questions — "why is there cross-AZ data transfer charge?" → NLB with cross-zone enabled.
+    </div>
+    <div class="callout exam">
+      <span class="label">Connection draining / deregistration delay</span>
+      When a target is deregistered (or marked unhealthy), ELB stops sending <em>new</em> requests but keeps in-flight requests alive for up to the deregistration delay (default 300s, can be 0–3600s). This is called <strong>Connection Draining</strong> on Classic LB and <strong>Deregistration Delay</strong> on ALB/NLB. Exam will ask about graceful shutdowns — this is the mechanism.
+    </div>
+    <div class="callout exam">
+      <span class="label">Slow start mode (ALB only)</span>
+      New targets get gradually increasing traffic over a warm-up period (30–900s) instead of immediately receiving their full share. Use this for targets that need time to warm up (JVM apps with JIT compilation, cache-heavy apps). Exam may present it as "how to avoid overwhelming new instances".
+    </div>
+    <div class="callout exam">
+      <span class="label">ALB listener redirect — HTTP to HTTPS</span>
+      Create an HTTP :80 listener with a Redirect action to HTTPS :443. This is the standard pattern. The redirect happens at the ALB — no code in your app. Common exam question about enforcing HTTPS.
+    </div>
+    <div class="callout exam">
+      <span class="label">ALB fixed response</span>
+      You can return a static response (status code + body) directly from ALB without hitting any backend. Use for: maintenance mode pages, returning 403 for unauthorized paths, health checks that always return 200. Exam presents this as "return a custom error page without reaching the backend".
+    </div>
+    <div class="callout exam">
+      <span class="label">GWLB port 6081 / GENEVE</span>
+      GWLB uses the GENEVE protocol on UDP port 6081 to tunnel packets to appliances. Security group on the appliance EC2 must allow port 6081 from the GWLB. This is a very specific detail Stephane covers — it does appear in questions.
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">Quick-fire facts</div>
+    <table class="qf">
+      <tr><td>ALB layer</td><td>Layer 7 (Application)</td></tr>
+      <tr><td>NLB layer</td><td>Layer 4 (Transport)</td></tr>
+      <tr><td>GWLB layer</td><td>Layer 3 (Network)</td></tr>
+      <tr><td>Static IP load balancer</td><td>NLB only (Elastic IP per AZ)</td></tr>
+      <tr><td>ALB client IP header</td><td>X-Forwarded-For</td></tr>
+      <tr><td>NLB client IP</td><td>Direct (no proxy) — visible on socket</td></tr>
+      <tr><td>ALB cross-zone default</td><td>Enabled, free</td></tr>
+      <tr><td>NLB cross-zone default</td><td>Disabled, charged</td></tr>
+      <tr><td>GWLB protocol</td><td>GENEVE, UDP port 6081</td></tr>
+      <tr><td>ALB SNI</td><td>Multiple SSL certs on one listener</td></tr>
+      <tr><td>NLB security group</td><td>None — instance SG must allow client IPs</td></tr>
+      <tr><td>Deregistration delay default</td><td>300 seconds (configurable 0–3600)</td></tr>
+      <tr><td>ALB slow start</td><td>30–900 seconds warm-up for new targets</td></tr>
+      <tr><td>Weighted target groups</td><td>ALB only (for canary/blue-green)</td></tr>
+      <tr><td>Lambda targets</td><td>ALB only</td></tr>
+      <tr><td>NLB → ALB target</td><td>Supported — get static IPs + content routing</td></tr>
+    </table>
+  </div>
+
+  <!-- ── PART COMPLETE BANNER ── -->
+  <div class="part-banner fade-in">
+    <p>
+      <strong>Part 1 complete.</strong> Tomorrow: ELB internals (listeners, target groups deep-dive, connection draining) and <strong>Auto Scaling Groups</strong> — scaling policies, warm-up, lifecycle hooks, and mixed instance types.
+    </p>
+    <span class="banner-pill">Part 2 coming soon</span>
+  </div>
+
+</div><!-- /page -->
+
+<footer>
+  <p>Chapter 07 · Part 1 — Load Balancing · Shreyas Rajiv</p>
+  <p><a href="index.html">← All chapters</a> &nbsp;·&nbsp; SAA-C03 &nbsp;·&nbsp; Stephane Maarek course</p>
+</footer>
+
+<script>
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>
