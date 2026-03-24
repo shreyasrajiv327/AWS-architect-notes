@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELB Advanced + Auto Scaling Groups | AWS SA Notes · Shreyas Rajiv</title>
+<meta name="description" content="Sticky sessions, cross-zone LB, SSL/SNI, connection draining, ASG and scaling policies — scenario-based notes for SAA-C03.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink:        #1A1916;
+    --ink-2:      #5C5A55;
+    --ink-3:      #9C9A94;
+    --paper:      #F8F6F1;
+    --paper-2:    #EFEDE6;
+    --paper-3:    #E5E2D9;
+    --gold:       #B08D57;
+    --gold-light: #F0E8D8;
+    --rule:       rgba(26,25,22,0.10);
+    --rule-med:   rgba(26,25,22,0.18);
+    --blue:       #2563A8;
+    --blue-light: #EBF2FB;
+    --green:      #1A7D5B;
+    --green-light:#E6F5EF;
+    --purple:     #6040A8;
+    --purple-light:#F0ECFB;
+    --orange:     #B85C0A;
+    --orange-light:#FEF0E2;
+    --red:        #A02020;
+    --red-light:  #FCEAEA;
+    --r:          8px;
+    --r-lg:       14px;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: 48px 48px; pointer-events: none; z-index: 0; opacity: 0.45;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 48px; height: 60px;
+    background: rgba(248,246,241,0.9); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .nav-brand { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); text-decoration: none; }
+  .nav-brand strong { color: var(--ink); font-weight: 500; }
+  .nav-right { display: flex; align-items: center; gap: 20px; }
+  .nav-chapter { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--gold); letter-spacing: 0.08em; background: var(--gold-light); padding: 4px 10px; border-radius: 99px; border: 1px solid rgba(176,141,87,0.22); }
+  .nav-back { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-3); text-decoration: none; letter-spacing: 0.06em; transition: color 0.2s; }
+  .nav-back:hover { color: var(--ink); }
+
+  /* LAYOUT */
+  .page { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 0 40px; }
+
+  /* HERO */
+  .hero { padding: 110px 0 64px; border-bottom: 1px solid var(--rule); margin-bottom: 72px; animation: rise 0.7s ease both; }
+  .hero-crumb { display: flex; align-items: center; gap: 10px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 24px; }
+  .crumb-sep { opacity: 0.4; }
+  .crumb-active { color: var(--gold); }
+  .hero h1 { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: clamp(40px, 6vw, 72px); line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 16px; }
+  .hero h1 em { font-style: italic; color: var(--ink-2); }
+  .hero-sub { font-size: 14px; color: var(--ink-2); max-width: 600px; line-height: 1.75; margin-bottom: 32px; }
+  .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .hero-tag { font-family: 'DM Mono', monospace; font-size: 10px; padding: 4px 12px; border-radius: 99px; border: 1px solid var(--rule-med); color: var(--ink-3); letter-spacing: 0.06em; }
+
+  /* PART DIVIDER */
+  .part-divider { display: flex; align-items: center; gap: 16px; margin: 72px 0 36px; }
+  .part-line { flex: 1; height: 1px; background: var(--rule); }
+  .part-label { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 400; letter-spacing: -0.01em; white-space: nowrap; }
+  .part-num { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-3); letter-spacing: 0.1em; }
+
+  /* SECTION */
+  .section { margin-bottom: 40px; }
+  .section-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+
+  /* CONCEPT BLOCK — the main teaching unit */
+  .concept {
+    background: #fff; border: 1px solid var(--rule);
+    border-radius: var(--r-lg); overflow: hidden; margin-bottom: 16px;
+  }
+  .concept-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 18px 22px 14px; gap: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .concept-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .concept-oneliner { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+  .concept-layer {
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em;
+    padding: 3px 10px; border-radius: 99px; white-space: nowrap; flex-shrink: 0;
+  }
+  .concept-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* KV */
+  .kv { width: 100%; border-collapse: collapse; }
+  .kv tr { border-bottom: 1px solid var(--rule); }
+  .kv tr:last-child { border-bottom: none; }
+  .kv td { padding: 9px 0; font-size: 13px; vertical-align: top; }
+  .kv td:first-child { color: var(--ink-2); width: 32%; padding-right: 18px; font-weight: 500; font-size: 11.5px; font-family: 'DM Mono', monospace; letter-spacing: 0.02em; }
+  .kv td code { font-family: 'DM Mono', monospace; font-size: 11.5px; background: var(--paper-2); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 6px; }
+  .kv td strong { font-weight: 500; }
+  .kv td ul { padding-left: 16px; }
+  .kv td li { margin-top: 4px; font-size: 12.5px; color: var(--ink-2); line-height: 1.6; }
+  .kv td li strong { color: var(--ink); }
+
+  /* CALLOUTS */
+  .callout { border-left: 3px solid; padding: 12px 18px; border-radius: 0 var(--r) var(--r) 0; margin-bottom: 10px; font-size: 13px; line-height: 1.7; }
+  .callout .label { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .callout strong { font-weight: 500; }
+  .callout.exam   { border-color: var(--purple); background: var(--purple-light); color: #3a2570; }
+  .callout.prod   { border-color: var(--blue);   background: var(--blue-light);   color: #153d6e; }
+  .callout.warn   { border-color: var(--orange);  background: var(--orange-light); color: var(--orange); }
+  .callout.tip    { border-color: var(--green);   background: var(--green-light);  color: #0f4d38; }
+  .callout.trap   { border-color: var(--red);     background: var(--red-light);    color: var(--red); }
+
+  /* ── SCENARIO BLOCK — the key new element ── */
+  .scenario-block {
+    border: 1px solid var(--rule); border-radius: var(--r-lg);
+    overflow: hidden; margin-bottom: 14px;
+  }
+  .scenario-q {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 14px 18px; background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+  }
+  .sq-badge {
+    font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 99px; flex-shrink: 0; margin-top: 1px;
+  }
+  .sq-badge.q { background: var(--paper-3); color: var(--ink-3); }
+  .scenario-q p { font-size: 13px; color: var(--ink); line-height: 1.6; }
+  .scenario-a { padding: 14px 18px; background: #fff; }
+  .scenario-a .ans-line {
+    display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px;
+  }
+  .sq-badge.a { background: var(--green-light); color: var(--green); }
+  .sq-badge.wrong { background: var(--red-light); color: var(--red); }
+  .scenario-a .ans-text { font-size: 13px; line-height: 1.65; }
+  .scenario-a .ans-text strong { font-weight: 500; }
+  .scenario-a .why {
+    font-size: 12px; color: var(--ink-2); line-height: 1.65;
+    border-top: 1px solid var(--rule); padding-top: 10px; margin-top: 4px;
+  }
+  .scenario-a .why b { color: var(--ink); font-weight: 500; }
+
+  /* VISUAL DIAGRAM — ASCII-style boxes */
+  .flow-diagram {
+    background: var(--paper-2); border: 1px solid var(--rule);
+    border-radius: var(--r-lg); padding: 20px 24px; margin-bottom: 14px;
+    font-family: 'DM Mono', monospace; font-size: 12px; line-height: 2;
+    overflow-x: auto;
+  }
+  .flow-diagram .flow-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 12px; }
+  .flow-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .flow-box {
+    padding: 5px 14px; border-radius: 6px; border: 1px solid;
+    font-size: 12px; white-space: nowrap;
+  }
+  .flow-box.blue   { background: var(--blue-light);   color: var(--blue);   border-color: rgba(37,99,168,0.2); }
+  .flow-box.green  { background: var(--green-light);  color: var(--green);  border-color: rgba(26,125,91,0.2); }
+  .flow-box.orange { background: var(--orange-light); color: var(--orange); border-color: rgba(184,92,10,0.2); }
+  .flow-box.purple { background: var(--purple-light); color: var(--purple); border-color: rgba(96,64,168,0.2); }
+  .flow-box.gray   { background: var(--paper-3);      color: var(--ink-2);  border-color: var(--rule-med); }
+  .flow-box.red    { background: var(--red-light);    color: var(--red);    border-color: rgba(160,32,32,0.2); }
+  .flow-arrow { color: var(--ink-3); font-size: 14px; }
+  .flow-note { font-size: 11px; color: var(--ink-3); margin-top: 4px; font-family: 'DM Sans', sans-serif; }
+
+  /* COMPARE TABLE */
+  .cmp-wrap { overflow-x: auto; border-radius: var(--r-lg); border: 1px solid var(--rule); margin-bottom: 14px; }
+  .cmp { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 500px; }
+  .cmp th { text-align: left; padding: 10px 16px; font-weight: 500; font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; background: var(--paper-2); border-bottom: 1px solid var(--rule); }
+  .cmp td { padding: 9px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .cmp tr:last-child td { border-bottom: none; }
+  .cmp td:first-child { font-weight: 500; color: var(--ink-2); font-size: 11.5px; font-family: 'DM Mono', monospace; }
+
+  /* QUICKFIRE */
+  .qf { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .qf tr { border-bottom: 1px solid var(--rule); }
+  .qf tr:last-child { border-bottom: none; }
+  .qf td { padding: 9px 0; vertical-align: top; }
+  .qf td:first-child { color: var(--ink-2); width: 44%; font-weight: 500; padding-right: 20px; font-family: 'DM Mono', monospace; font-size: 11.5px; }
+
+  /* PART BANNER */
+  .part-banner { background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 20px 28px; display: flex; align-items: center; justify-content: space-between; margin: 56px 0 0; flex-wrap: wrap; gap: 12px; }
+  .part-banner p { font-size: 13px; color: var(--ink-2); }
+  .part-banner p strong { color: var(--ink); font-weight: 500; }
+  .banner-pill { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); background: var(--gold-light); padding: 6px 14px; border-radius: 99px; border: 1px solid rgba(176,141,87,0.25); white-space: nowrap; }
+
+  /* FOOTER */
+  footer { position: relative; z-index: 1; border-top: 1px solid var(--rule); padding: 28px 40px; display: flex; justify-content: space-between; align-items: center; max-width: 960px; margin: 60px auto 0; flex-wrap: wrap; gap: 8px; }
+  footer p { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  footer a { color: var(--ink-2); text-decoration: none; }
+  footer a:hover { color: var(--ink); }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { opacity: 0; transform: translateY(18px); transition: opacity 0.55s ease, transform 0.55s ease; }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+  @media (max-width: 680px) {
+    nav { padding: 0 20px; }
+    .page { padding: 0 20px; }
+    footer { padding: 24px 20px; }
+    .hero { padding: 90px 0 48px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="index.html"><strong>Shreyas Rajiv</strong> &nbsp;/&nbsp; AWS SA Notes</a>
+  <div class="nav-right">
+    <span class="nav-chapter">Chapter 07 · Part 2</span>
+    <a class="nav-back" href="index.html">← All chapters</a>
+  </div>
+</nav>
+
+<div class="page">
+
+  <header class="hero">
+    <div class="hero-crumb">
+      <span>Chapter 07</span><span class="crumb-sep">/</span>
+      <span>High Availability &amp; Scalability</span><span class="crumb-sep">/</span>
+      <span class="crumb-active">ELB Advanced + ASG</span>
+    </div>
+    <h1>ELB Deep Dive<br>&amp; <em>Auto Scaling</em></h1>
+    <p class="hero-sub">
+      Sticky sessions, cross-zone load balancing, SSL/SNI, connection draining, ASG internals and every scaling policy type — written around the scenario questions that trip people up in quizzes.
+    </p>
+    <div class="hero-tags">
+      <span class="hero-tag">Sticky Sessions</span>
+      <span class="hero-tag">Cross-Zone LB</span>
+      <span class="hero-tag">SSL / SNI</span>
+      <span class="hero-tag">Connection Draining</span>
+      <span class="hero-tag">ASG</span>
+      <span class="hero-tag">Scaling Policies</span>
+    </div>
+  </header>
+
+  <!-- ═══ §1 STICKY SESSIONS ═══ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§1</span>
+    <div class="part-line"></div>
+    <h2 class="part-label">Sticky Sessions</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="concept">
+      <div class="concept-header">
+        <div>
+          <div class="concept-title">What stickiness actually does</div>
+          <div class="concept-oneliner">Pins a specific user to a specific backend instance for the lifetime of their session — using a cookie as the glue.</div>
+        </div>
+        <span class="concept-layer" style="background:var(--blue-light);color:var(--blue);">ALB + CLB</span>
+      </div>
+      <div class="concept-body">
+        <table class="kv">
+          <tr><td>The mechanism</td><td>On the first request, ELB picks a target normally. It then sets a cookie on the client's browser. Every subsequent request from that browser includes the cookie — ELB reads it and routes to the <strong>same instance</strong>, bypassing normal load balancing.</td></tr>
+          <tr><td>Duration-based cookie</td><td>ELB generates the cookie (<code>AWSALB</code> for ALB). You set the TTL (1 second to 7 days). After TTL expires, the next request picks a new instance normally. You have no control over the cookie content.</td></tr>
+          <tr><td>App-based cookie</td><td>Your application sets its own cookie (any name except reserved AWS names). ELB reads it and sticks the user based on it. Gives you full control — you can expire stickiness when the user logs out, for example.</td></tr>
+          <tr><td>Scope</td><td>Stickiness is configured <strong>per target group</strong>, not per listener or per ALB. Different target groups can have different stickiness settings.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="flow-diagram">
+      <div class="flow-title">With stickiness — same user always hits same instance</div>
+      <div class="flow-row">
+        <span class="flow-box blue">User (cookie: TG-A → i-001)</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-box green">ALB</span>
+        <span class="flow-arrow">→ reads cookie →</span>
+        <span class="flow-box orange">i-001 always</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-box blue">New User (no cookie)</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-box green">ALB</span>
+        <span class="flow-arrow">→ round-robin →</span>
+        <span class="flow-box orange">i-001 or i-002 or i-003</span>
+      </div>
+      <p class="flow-note">↑ Once new user is assigned, ALB sets AWSALB cookie → all future requests go to that same instance</p>
+    </div>
+
+    <div class="callout warn">
+      <span class="label">The big tradeoff</span>
+      Stickiness breaks even load distribution. If instance i-001 gets pinned by many long-lived sessions, it bears more load than i-002 and i-003. This defeats the purpose of a load balancer. <strong>The right solution is stateless backends with a shared session store</strong> (ElastiCache Redis / DynamoDB) — use stickiness only for legacy apps you can't refactor.
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">Sticky sessions — scenario practice</div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>A legacy e-commerce app stores shopping cart data in the local memory of each EC2 instance. Users keep losing their carts when they're routed to different instances. What's the quickest fix, and what's the proper long-term fix?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text"><strong>Quick fix:</strong> Enable sticky sessions (duration-based) on the ALB target group. Users will be pinned to the same instance and won't lose cart state.<br><br><strong>Proper fix:</strong> Move session/cart state to ElastiCache (Redis). All instances share the same state — now you can truly scale and route freely with no stickiness needed.</div>
+        </div>
+        <div class="why">
+          <b>Why this matters:</b> The exam loves "legacy app that stores state locally" as the setup. Stickiness is always presented as the quick/imperfect fix, and a shared state store (ElastiCache, DynamoDB) as the correct architectural fix. Know both.
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>You notice that one EC2 instance behind your ALB is receiving significantly more traffic than the others, causing CPU spikes. Stickiness is enabled. What's happening and how do you fix it?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">Stickiness is <strong>pinning a disproportionate number of long-lived sessions</strong> to one instance. New connections are distributed evenly, but sessions that started early keep returning to the same host. Fix: disable stickiness and move session state to ElastiCache, or reduce the stickiness TTL so sessions rebalance more frequently.</div>
+        </div>
+        <div class="why">
+          <b>Why this matters:</b> "Uneven load distribution + stickiness enabled" is a direct exam pattern. The answer is always that stickiness is the cause, and the architectural fix is stateless backends.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ §2 CROSS-ZONE LOAD BALANCING ═══ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§2</span>
+    <div class="part-line"></div>
+    <h2 class="part-label">Cross-Zone Load Balancing</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="concept">
+      <div class="concept-header">
+        <div>
+          <div class="concept-title">The problem it solves</div>
+          <div class="concept-oneliner">When AZs have unequal numbers of instances, without cross-zone LB some instances get far more traffic than others.</div>
+        </div>
+      </div>
+      <div class="concept-body">
+        <div class="flow-diagram">
+          <div class="flow-title">Without cross-zone — traffic is uneven</div>
+          <div class="flow-row">
+            <span class="flow-box blue">DNS routes 50% → AZ-A node</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box orange">AZ-A has 2 instances → 25% each</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-box blue">DNS routes 50% → AZ-B node</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box red">AZ-B has 8 instances → 6.25% each</span>
+          </div>
+          <p class="flow-note">↑ AZ-A instances each handle 4× more traffic than AZ-B instances. Hot AZ.</p>
+        </div>
+        <div class="flow-diagram" style="margin-top:0">
+          <div class="flow-title">With cross-zone — traffic is even across all 10 instances</div>
+          <div class="flow-row">
+            <span class="flow-box blue">50% to AZ-A node</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box green">Distributed across all 10 instances → 10% each</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-box blue">50% to AZ-B node</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box green">Same pool → 10% each</span>
+          </div>
+        </div>
+        <table class="kv">
+          <tr><td>ALB</td><td>Cross-zone LB is <strong>always on, cannot be disabled, no charge</strong> for cross-AZ data transfer.</td></tr>
+          <tr><td>NLB / GWLB</td><td>Cross-zone LB is <strong>off by default</strong>. Can be enabled per load balancer. <strong>Data transfer charges apply</strong> when traffic crosses AZ boundaries.</td></tr>
+          <tr><td>Classic LB</td><td>Off by default. Free when enabled (no inter-AZ data transfer charge). Legacy — don't use for new workloads.</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">Cross-zone — scenario practice</div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>You have an NLB with 2 instances in AZ-A and 8 instances in AZ-B. Cross-zone load balancing is disabled. A performance test shows AZ-A instances are at 80% CPU while AZ-B instances are at 20%. What do you do?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">Enable cross-zone load balancing on the NLB. Traffic will distribute evenly across all 10 instances (10% each) instead of 50% landing on 2 AZ-A instances. <strong>Note:</strong> this will incur inter-AZ data transfer charges on NLB — evaluate the cost tradeoff.</div>
+        </div>
+        <div class="why">
+          <b>Why this matters:</b> Uneven CPU across AZs when instance counts differ = cross-zone is disabled. The fix is enabling it. On NLB/GWLB remember to mention the data transfer cost — it shows the examiner you know the nuance.
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>Your team is seeing unexpected inter-AZ data transfer charges on an NLB that just had cross-zone load balancing enabled. Is this expected?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">Yes, completely expected. Unlike ALB (where cross-zone is free), <strong>NLB and GWLB charge for cross-AZ data transfer when cross-zone LB is enabled</strong>. The charge is the standard inter-AZ data transfer rate. To avoid it: keep cross-zone off and ensure equal instance counts across AZs instead.</div>
+        </div>
+        <div class="why">
+          <b>Key fact to memorise:</b> ALB cross-zone = always on, always free. NLB/GWLB cross-zone = off by default, charged when on.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ §3 SSL / SNI ═══ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§3</span>
+    <div class="part-line"></div>
+    <h2 class="part-label">SSL &amp; SNI</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="concept">
+      <div class="concept-header">
+        <div>
+          <div class="concept-title">How TLS termination works at ELB</div>
+          <div class="concept-oneliner">ELB terminates the HTTPS connection from the client, decrypts it, then makes a new plain HTTP (or HTTPS) connection to the backend. Certs live on the ELB, not the instances.</div>
+        </div>
+        <span class="concept-layer" style="background:var(--green-light);color:var(--green);">ALB + NLB</span>
+      </div>
+      <div class="concept-body">
+        <table class="kv">
+          <tr><td>ACM integration</td><td>Use AWS Certificate Manager to provision and auto-renew SSL certs for free. Just associate the ACM cert ARN with your HTTPS listener. ACM handles renewal — no more expired cert incidents.</td></tr>
+          <tr><td>Security policy</td><td>ELB security policies define which TLS versions (TLS 1.0, 1.1, 1.2, 1.3) and cipher suites are allowed. Use <code>ELBSecurityPolicy-TLS13-1-2-2021-06</code> or newer in production to enforce TLS 1.2+ and strong ciphers.</td></tr>
+          <tr><td>HTTPS → HTTP backend</td><td>Standard pattern. ELB terminates TLS, sends plain HTTP to backend. Backend doesn't need to manage certs. Works because traffic from ELB to backend stays within the VPC (private network).</td></tr>
+          <tr><td>End-to-end encryption</td><td>If compliance requires encryption all the way to the instance: ALB → HTTPS listener → backend target with self-signed cert. Or use NLB with TLS passthrough — NLB passes encrypted traffic without decrypting.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="concept">
+      <div class="concept-header">
+        <div>
+          <div class="concept-title">SNI — Server Name Indication</div>
+          <div class="concept-oneliner">Allows multiple SSL certificates on a single ALB listener — one per hostname. The client announces which hostname it wants in the TLS handshake, and ALB picks the right cert.</div>
+        </div>
+        <span class="concept-layer" style="background:var(--blue-light);color:var(--blue);">ALB + NLB only</span>
+      </div>
+      <div class="concept-body">
+        <div class="flow-diagram">
+          <div class="flow-title">SNI — one ALB, three domains, three certs</div>
+          <div class="flow-row">
+            <span class="flow-box blue">Client → app.example.com</span>
+            <span class="flow-arrow">→ TLS Hello (SNI: app.example.com) →</span>
+            <span class="flow-box green">ALB serves *.example.com cert → app TG</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-box blue">Client → api.example.com</span>
+            <span class="flow-arrow">→ TLS Hello (SNI: api.example.com) →</span>
+            <span class="flow-box green">ALB serves api cert → api TG</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-box blue">Client → tenant1.saas.io</span>
+            <span class="flow-arrow">→ TLS Hello (SNI: tenant1.saas.io) →</span>
+            <span class="flow-box orange">ALB serves tenant1 cert → tenant1 TG</span>
+          </div>
+          <p class="flow-note">↑ All three share the same :443 listener. No separate ALBs needed. Classic LB does NOT support SNI.</p>
+        </div>
+        <table class="kv">
+          <tr><td>Supports</td><td>ALB and NLB. Classic Load Balancer does <strong>not</strong> support SNI — one cert per CLB.</td></tr>
+          <tr><td>Max certs per ALB</td><td>25 certificates per HTTPS listener (can be increased via limit request). Enough for most multi-tenant SaaS.</td></tr>
+          <tr><td>Wildcard certs</td><td>A single <code>*.example.com</code> wildcard cert covers all subdomains — use instead of individual certs where possible.</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">SSL / SNI — scenario practice</div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>You're building a SaaS platform where each customer gets their own subdomain (customer1.app.com, customer2.app.com) each needing its own SSL certificate. What's the most cost-effective and operationally simple way to handle this on AWS?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">Use a <strong>single ALB with SNI</strong>. Add each customer's ACM certificate to the HTTPS :443 listener. ALB uses SNI to serve the correct cert per subdomain. Use host-based routing rules to direct each subdomain to the correct target group. No need for one ALB per customer — that would be expensive and a management nightmare.</div>
+        </div>
+        <div class="why">
+          <b>Why this matters:</b> Multi-tenant SSL on one ALB is a very common architecture question. SNI is the answer. The trap is suggesting Classic LB — it doesn't support SNI so you'd need a separate CLB per domain.
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>A financial services company requires that all traffic be encrypted in transit, including between the load balancer and backend EC2 instances. How do you architect this?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">Two options: <br><br>
+          <strong>Option 1 — NLB with TLS passthrough:</strong> NLB forwards encrypted traffic directly to instances without decrypting. Instances terminate TLS themselves. Full end-to-end encryption, NLB never sees plaintext.<br><br>
+          <strong>Option 2 — ALB with HTTPS to backend:</strong> ALB terminates TLS, then re-encrypts to the backend. Backend uses a self-signed or ACM private CA cert. ALB does see plaintext (between termination and re-encryption).</div>
+        </div>
+        <div class="why">
+          <b>When to use which:</b> If "NLB never sees plaintext" is a hard requirement → Option 1. If you just need encryption in transit (compliance checkbox) → Option 2 is simpler operationally.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ §4 CONNECTION DRAINING ═══ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§4</span>
+    <div class="part-line"></div>
+    <h2 class="part-label">Connection Draining</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="concept">
+      <div class="concept-header">
+        <div>
+          <div class="concept-title">Deregistration Delay (ALB/NLB) = Connection Draining (CLB)</div>
+          <div class="concept-oneliner">When a target is being removed, ELB lets in-flight requests finish before completely cutting off the instance — instead of killing active connections mid-request.</div>
+        </div>
+        <span class="concept-layer" style="background:var(--orange-light);color:var(--orange);">All ELB types</span>
+      </div>
+      <div class="concept-body">
+        <div class="flow-diagram">
+          <div class="flow-title">What happens during deregistration</div>
+          <div class="flow-row">
+            <span class="flow-box orange">Instance marked for removal (or unhealthy)</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-arrow">↓</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-box blue">ELB stops sending NEW requests to this instance</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-arrow">↓  (deregistration delay timer starts — default 300s)</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-box green">In-flight requests continue until they complete</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-arrow">↓  (timer expires OR all connections close, whichever first)</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-box red">Instance fully deregistered — connection forcibly closed</span>
+          </div>
+        </div>
+        <table class="kv">
+          <tr><td>Default value</td><td>300 seconds (5 minutes). Can be set from 0 to 3600 seconds.</td></tr>
+          <tr><td>Set to 0</td><td>Disables connection draining entirely — connections are immediately closed on deregistration. Use only if your requests are very short-lived (e.g. &lt;1s) and you want fast instance replacement.</td></tr>
+          <tr><td>Set low (e.g. 30s)</td><td>For microservices with short-lived HTTP requests. Fast deploys, faster ASG scale-in.</td></tr>
+          <tr><td>Set high (e.g. 600s+)</td><td>For long-running requests — file uploads, long-polling, report generation. Give them time to complete before the instance disappears.</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">Connection draining — scenario practice</div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>Users are reporting that during deployments (when old instances are replaced), they occasionally get errors mid-request — as if the connection was just cut. What ELB setting do you check?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">Check the <strong>deregistration delay</strong> (connection draining). It may be set to 0 (disabled) or set too low relative to how long your requests take. Increase it to a value comfortably above your p99 request duration. Requests that started before the drain window closes will now complete cleanly.</div>
+        </div>
+        <div class="why">
+          <b>Exam pattern:</b> "Errors during deployments / instance replacement" = deregistration delay too low. "Deployments are slow / ASG scale-in takes too long" = deregistration delay too high.
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>Your ASG is scaling in (removing instances) but it's taking much longer than expected, causing you to pay for extra instances during off-peak hours. What setting should you lower?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">Lower the <strong>deregistration delay</strong>. The default is 300s — if your requests are short (API calls typically complete in &lt;1s), the instance sits idle for up to 5 minutes waiting for connections that have already closed. Set it to 30s or even lower for fast-terminating services.</div>
+        </div>
+        <div class="why">
+          <b>Cost implication:</b> High deregistration delay = slow scale-in = paying for idle instances. This is a direct cost-optimisation pattern.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ §5 ASG FUNDAMENTALS ═══ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§5</span>
+    <div class="part-line"></div>
+    <h2 class="part-label">Auto Scaling Groups</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="concept">
+      <div class="concept-header">
+        <div>
+          <div class="concept-title">What an ASG does</div>
+          <div class="concept-oneliner">Maintains a fleet of EC2 instances at the right size automatically — scaling out when demand rises, scaling in when it drops, and replacing unhealthy instances without your intervention.</div>
+        </div>
+      </div>
+      <div class="concept-body">
+        <table class="kv">
+          <tr><td>Min / Desired / Max</td><td>
+            <strong>Min:</strong> Never go below this count (floor — for baseline availability).<br>
+            <strong>Desired:</strong> ASG tries to maintain this count right now. Can be changed manually or by scaling policies.<br>
+            <strong>Max:</strong> Never go above this count (ceiling — for cost control).
+          </td></tr>
+          <tr><td>Launch Template</td><td>Defines what each instance looks like: AMI, instance type, key pair, security groups, IAM role, user data, EBS volumes. Think of it as the blueprint. Use Launch Templates (not the older Launch Configurations — LCs are immutable and lack features).</td></tr>
+          <tr><td>ELB integration</td><td>ASG registers new instances with the ALB/NLB target group automatically. When an instance is terminated, ASG deregisters it (respecting the deregistration delay). This is the core HA + scaling pattern.</td></tr>
+          <tr><td>Health checks</td><td>By default, ASG uses EC2 health checks (is the instance running?). <strong>Enable ELB health checks</strong> on the ASG too — this means if ELB marks an instance unhealthy (app is failing, not just the instance), ASG will terminate and replace it. Critical for production.</td></tr>
+          <tr><td>Multi-AZ</td><td>Always span your ASG across at least 2 AZs (ideally 3). ASG tries to keep instance count balanced across AZs. If an AZ goes down, ASG launches replacements in the remaining AZs.</td></tr>
+          <tr><td>Free service</td><td>ASG itself costs nothing. You only pay for the EC2 instances it launches.</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ §6 ASG SCALING POLICIES ═══ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§6</span>
+    <div class="part-line"></div>
+    <h2 class="part-label">Scaling Policies</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">The four scaling policy types</div>
+
+    <div class="concept">
+      <div class="concept-header">
+        <div>
+          <div class="concept-title">1. Target Tracking Scaling</div>
+          <div class="concept-oneliner">You set a target metric value. ASG automatically adds/removes instances to keep the metric at that target. The simplest and most recommended policy.</div>
+        </div>
+        <span class="concept-layer" style="background:var(--green-light);color:var(--green);">Recommended</span>
+      </div>
+      <div class="concept-body">
+        <table class="kv">
+          <tr><td>How it works</td><td>Pick a metric and a target value. ASG does the math. e.g. "keep average CPU at 50%" — if CPU goes to 70%, ASG adds instances. If CPU drops to 20%, ASG removes instances. You never write scale-out or scale-in rules separately.</td></tr>
+          <tr><td>Common targets</td><td>
+            <ul>
+              <li><strong>ASGAverageCPUUtilization</strong> — most common, target 40–60%</li>
+              <li><strong>ALBRequestCountPerTarget</strong> — keep requests per instance at N</li>
+              <li><strong>ASGAverageNetworkIn/Out</strong> — for network-bound workloads</li>
+            </ul>
+          </td></tr>
+          <tr><td>Scale-in protection</td><td>Target tracking creates both scale-out and scale-in alarms automatically. To prevent aggressive scale-in, set a scale-in cooldown or use instance scale-in protection on specific instances.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="concept">
+      <div class="concept-header">
+        <div>
+          <div class="concept-title">2. Simple / Step Scaling</div>
+          <div class="concept-oneliner">CloudWatch alarm triggers a specific scaling action — add N instances when alarm fires, remove N when alarm clears. Step adds more granularity by defining different actions at different alarm thresholds.</div>
+        </div>
+        <span class="concept-layer" style="background:var(--blue-light);color:var(--blue);">More control</span>
+      </div>
+      <div class="concept-body">
+        <table class="kv">
+          <tr><td>Simple Scaling</td><td>One alarm → one action. Add 2 instances when CPU &gt; 70%. Remove 1 instance when CPU &lt; 30%. Waits for cooldown before triggering again — can be slow to react to sudden spikes.</td></tr>
+          <tr><td>Step Scaling</td><td>Multiple thresholds, different actions per threshold. e.g.: CPU 70–80% → add 1 instance. CPU 80–90% → add 2. CPU &gt;90% → add 4. Reacts proportionally to severity. <strong>Does not wait for cooldown</strong> — can continuously add instances during a spike.</td></tr>
+          <tr><td>When to use</td><td>When target tracking doesn't give you enough control — e.g. you want to scale aggressively during sudden traffic spikes (step) or when you have a custom CloudWatch metric as the trigger.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="concept">
+      <div class="concept-header">
+        <div>
+          <div class="concept-title">3. Scheduled Scaling</div>
+          <div class="concept-oneliner">Scale at a known time — useful when you know traffic patterns in advance. Cron expression or one-time scheduled action.</div>
+        </div>
+        <span class="concept-layer" style="background:var(--purple-light);color:var(--purple);">Predictable patterns</span>
+      </div>
+      <div class="concept-body">
+        <table class="kv">
+          <tr><td>How it works</td><td>Set a future time (or recurring cron) and a desired capacity. ASG adjusts min/desired/max at that exact time. e.g. "every weekday at 8am set desired to 10, at 8pm set desired to 2".</td></tr>
+          <tr><td>Classic use cases</td><td>Business-hours traffic patterns, known events (Monday morning spike, end-of-month payroll processing, Black Friday). Scale up before the traffic arrives — don't wait for CloudWatch to react after the fact.</td></tr>
+          <tr><td>Combine with reactive</td><td>Scheduled scaling sets the baseline. Target tracking reacts to unexpected variation on top. Use both together.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="concept">
+      <div class="concept-header">
+        <div>
+          <div class="concept-title">4. Predictive Scaling</div>
+          <div class="concept-oneliner">ML-based. AWS analyses historical CloudWatch data and forecasts future load — then proactively schedules scaling actions ahead of time.</div>
+        </div>
+        <span class="concept-layer" style="background:var(--orange-light);color:var(--orange);">ML-powered</span>
+      </div>
+      <div class="concept-body">
+        <table class="kv">
+          <tr><td>How it works</td><td>AWS looks at the last 14 days of metric history, detects recurring patterns, and creates scheduled scaling actions automatically. You don't manually define the schedule — AWS predicts it.</td></tr>
+          <tr><td>Best for</td><td>Workloads with repeating patterns: weekly cycles, daily office hours, monthly batch peaks. Needs at least 24 hours of historical data to generate forecasts.</td></tr>
+          <tr><td>vs Scheduled</td><td>Scheduled = you know the pattern and set it manually. Predictive = AWS detects the pattern automatically from your history. Use predictive when the pattern is regular but you don't want to maintain cron expressions.</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">Critical ASG mechanics</div>
+    <div class="concept">
+      <div class="concept-body" style="padding-top:18px;">
+        <table class="kv">
+          <tr><td>Cooldown period</td><td>After a scaling activity, ASG waits N seconds before evaluating another scaling trigger (default 300s). Prevents "flapping" — rapidly adding then removing instances before the first batch has had time to affect the metric. During cooldown, alarms that fire are ignored.</td></tr>
+          <tr><td>Warm-up period</td><td>New instances take time to be ready (boot, app init, cache warm). During warm-up, ASG doesn't count the new instance's metrics toward the aggregate. Prevents premature scale-out thinking the new instance "didn't help" when it's still booting.</td></tr>
+          <tr><td>Termination policy</td><td>When scaling in, which instance does ASG kill? Default: oldest launch template → then the instance closest to the next billing hour. Can customise: <code>OldestInstance</code>, <code>NewestInstance</code>, <code>ClosestToNextInstanceHour</code>, <code>Default</code>. For blue/green deploys, <code>OldestLaunchTemplate</code> is common.</td></tr>
+          <tr><td>Instance refresh</td><td>Rolling replacement of all instances in the ASG with a new launch template version. Specify a minimum healthy percentage (e.g. 90%) — ASG keeps 90% healthy while replacing the rest. No downtime. The built-in way to do rolling deploys on an ASG.</td></tr>
+          <tr><td>Lifecycle hooks</td><td>Pause an instance in a transition state (Pending:Wait or Terminating:Wait) and run custom logic — e.g. pull config from S3, drain a queue, deregister from Consul, run a cleanup script. Instance is held until you send <code>CompleteLifecycleAction</code> or the timeout fires.</td></tr>
+          <tr><td>Scale-in protection</td><td>Mark specific instances as protected from scale-in. ASG will never terminate them automatically. Use for instances holding critical state or running a long job you don't want interrupted.</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">ASG + Scaling Policies — scenario practice</div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>Your e-commerce site gets a massive traffic spike every day at 9am when your marketing email goes out. By the time CloudWatch detects high CPU and ASG scales out, it's already been 5 minutes and users experienced slow load times. How do you fix this?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">Use <strong>Scheduled Scaling</strong> to pre-scale at 8:50am — before the spike hits. Set desired capacity to your expected peak count 10 minutes before the email sends. Combine with Target Tracking to handle unexpected variation beyond the scheduled baseline.</div>
+        </div>
+        <div class="why">
+          <b>The principle:</b> Reactive scaling (target tracking, step) always lags — it needs the problem to occur before it can react. When you <em>know</em> the spike is coming, scheduled scaling is always faster. Pre-scale beats react-and-catch-up.
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>During a sudden traffic spike, your step scaling policy fired and added 4 instances. But 2 minutes later it fired again and added 4 more — and the CPU was actually coming down. Now you have too many instances. What caused this and how do you prevent it?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">The <strong>cooldown period</strong> is too short (or the warm-up period isn't set). The first 4 instances hadn't finished booting and accepting traffic yet, so the metric hadn't improved. ASG saw the alarm still firing and added 4 more. Fix: increase the cooldown period to give new instances time to become healthy and affect the metric, and/or set an instance warm-up period in the scaling policy.</div>
+        </div>
+        <div class="why">
+          <b>Exam pattern:</b> "ASG keeps adding instances even though the problem is resolved / over-scales" = cooldown too short or warm-up not set. "ASG is slow to scale out" = cooldown too long.
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>You're deploying a new version of your app. You want all existing instances replaced with the new AMI, but you can't have more than 20% of instances down at any point. What's the cleanest way to do this?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">Use <strong>Instance Refresh</strong> on the ASG with a minimum healthy percentage of 80%. ASG will update the launch template, then perform a rolling replacement — terminating at most 20% of instances at a time, waiting for replacements to pass health checks before continuing to the next batch.</div>
+        </div>
+        <div class="why">
+          <b>vs other options:</b> Blue/green (create new ASG) is heavier. Manual termination is risky. Instance Refresh is the built-in, zero-downtime rolling deploy mechanism for ASGs.
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>When ASG scales in and terminates an instance, a long-running background job that was running on it gets killed mid-execution, corrupting data. How do you prevent this?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text">Use an <strong>ASG Lifecycle Hook</strong> on the <code>EC2_INSTANCE_TERMINATING</code> transition. The hook pauses the instance in <code>Terminating:Wait</code> state. Your termination script (triggered by EventBridge or SSM) detects the lifecycle event, waits for the job to finish (or saves checkpoint state to S3/DynamoDB), then calls <code>CompleteLifecycleAction</code> to let ASG proceed with termination.</div>
+        </div>
+        <div class="why">
+          <b>Lifecycle hooks in one sentence:</b> They give you a window of time to run custom logic before an instance fully launches or terminates — the instance is paused in a wait state until you signal it's OK to proceed.
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario-block">
+      <div class="scenario-q">
+        <span class="sq-badge q">Q</span>
+        <p>Which scaling policy would you use for a workload that follows repeating weekly patterns (high on weekdays, low on weekends) but you don't want to manually maintain the schedule?</p>
+      </div>
+      <div class="scenario-a">
+        <div class="ans-line">
+          <span class="sq-badge a">A</span>
+          <div class="ans-text"><strong>Predictive Scaling.</strong> It analyses your CloudWatch metric history, detects the weekday/weekend pattern automatically, and creates proactive scaling schedules without you maintaining cron expressions. Needs 24+ hours of data and works best with at least 14 days of history.</div>
+        </div>
+        <div class="why">
+          <b>Predictive vs Scheduled:</b> Scheduled = you define the times. Predictive = AWS learns the times from your history. If the exam says "automated", "no manual schedule", "repeating pattern" → Predictive Scaling.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ §7 SUMMARY TABLES ═══ -->
+  <div class="part-divider fade-in">
+    <span class="part-num">§7</span>
+    <div class="part-line"></div>
+    <h2 class="part-label">Quick Reference</h2>
+    <div class="part-line"></div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">Scaling policy comparison</div>
+    <div class="cmp-wrap">
+      <table class="cmp">
+        <thead>
+          <tr>
+            <th>Policy</th>
+            <th>Trigger</th>
+            <th>Best for</th>
+            <th>Exam keyword</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Target Tracking</td><td>Keep metric at target value</td><td>Most workloads — simplest to manage</td><td>"Maintain CPU at X%"</td></tr>
+          <tr><td>Step Scaling</td><td>CloudWatch alarm + threshold bands</td><td>When you need proportional response to spike severity</td><td>"Add more instances the worse it gets"</td></tr>
+          <tr><td>Simple Scaling</td><td>CloudWatch alarm fires</td><td>Simple on/off trigger, low traffic variance</td><td>Legacy — prefer Step or Target</td></tr>
+          <tr><td>Scheduled</td><td>Time / cron</td><td>Known traffic patterns (business hours, events)</td><td>"Pre-scale before known event"</td></tr>
+          <tr><td>Predictive</td><td>ML forecast from history</td><td>Recurring patterns you don't want to manage manually</td><td>"Repeating pattern, automated"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section fade-in">
+    <div class="section-title">All topics — quick-fire facts</div>
+    <table class="qf">
+      <tr><td>Sticky session cookie (ALB)</td><td>AWSALB (duration-based) or custom (app-based)</td></tr>
+      <tr><td>Stickiness scope</td><td>Per target group, not per ALB or listener</td></tr>
+      <tr><td>Cross-zone — ALB</td><td>Always on, no charge</td></tr>
+      <tr><td>Cross-zone — NLB/GWLB</td><td>Off by default, charged when enabled</td></tr>
+      <tr><td>SNI support</td><td>ALB + NLB only. Classic LB = NO</td></tr>
+      <tr><td>Max certs per ALB listener</td><td>25 (can increase via support)</td></tr>
+      <tr><td>Deregistration delay default</td><td>300s (0 = disabled, max 3600s)</td></tr>
+      <tr><td>ASG health check types</td><td>EC2 (default) and ELB — enable both in prod</td></tr>
+      <tr><td>ASG cooldown default</td><td>300 seconds</td></tr>
+      <tr><td>Lifecycle hook states</td><td>Pending:Wait (launch) / Terminating:Wait (terminate)</td></tr>
+      <tr><td>Instance Refresh min healthy %</td><td>You set it — e.g. 90% = replace 10% at a time</td></tr>
+      <tr><td>Predictive Scaling min history</td><td>24 hours data (14 days for best accuracy)</td></tr>
+      <tr><td>ASG default termination policy</td><td>Oldest launch template → closest to billing hour</td></tr>
+      <tr><td>ASG cost</td><td>Free — pay only for EC2 instances launched</td></tr>
+    </table>
+  </div>
+
+  <div class="part-banner fade-in">
+    <p><strong>Chapter 07 complete.</strong> Next up — Chapter 02: VPC, subnets, route tables, NAT gateways, VPC peering, and Transit Gateway.</p>
+    <span class="banner-pill">Chapter 07 ✓</span>
+  </div>
+
+</div>
+
+<footer>
+  <p>Chapter 07 · Part 2 — ELB Advanced + ASG · Shreyas Rajiv</p>
+  <p><a href="index.html">← All chapters</a> &nbsp;·&nbsp; SAA-C03 &nbsp;·&nbsp; Stephane Maarek course</p>
+</footer>
+
+<script>
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>
