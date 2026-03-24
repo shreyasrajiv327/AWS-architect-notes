@@ -314,6 +314,35 @@
   .scenario-a { font-size: 13px; line-height: 1.6; color: var(--text); }
   .scenario-a b { color: var(--blue); font-weight: 500; }
 
+  /* ── SCENARIO BLOCK (Q&A format) ── */
+  .scenario-block {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .scenario-block:hover { border-color: var(--border-med); }
+  .sq {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 13px 18px;
+  }
+  .sq.q-row { background: var(--bg2); border-bottom: 1px solid var(--border); }
+  .sq.a-row { background: #fff; flex-direction: column; gap: 8px; }
+  .sq-badge {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 99px; flex-shrink: 0; margin-top: 1px;
+  }
+  .sq-badge.q { background: var(--bg); color: var(--text-3); border: 1px solid var(--border); }
+  .sq-badge.a { background: var(--teal-light); color: var(--teal); }
+  .sq p { font-size: 13px; line-height: 1.65; }
+  .sq p strong { font-weight: 500; }
+  .sq-why {
+    font-size: 12px; color: var(--text-2); line-height: 1.65;
+    border-top: 1px solid var(--border); padding-top: 10px; margin-top: 2px;
+  }
+  .sq-why b { color: var(--text); font-weight: 500; }
+
   /* ── QUICKFIRE TABLE ── */
   .qf { width: 100%; border-collapse: collapse; font-size: 13px; }
   .qf tr { border-bottom: 1px solid var(--border); }
@@ -488,7 +517,42 @@
       <span class="label">T-series gotcha</span>
       T3/T4g instances earn CPU credits when idle and spend them on spikes. If consistently at high CPU, credits exhaust and performance drops to the <strong>baseline</strong> (~10–30% vCPU). Fix: switch to M-series, or enable <strong>T Unlimited</strong> mode (billed for extra credits).
     </div>
-  </div>
+
+    <div class="section">
+      <div class="section-title">EC2 — scenario practice</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A company runs a stateless image-processing job that takes 2 hours to complete. It can restart from a checkpoint if interrupted. They want the lowest possible cost. Which purchasing option?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Spot Instances.</strong> The job is stateless, fault-tolerant, and restartable — exactly what Spot is designed for. Up to 90% cheaper than On-Demand. Use a Spot interruption handler to save the checkpoint before the 2-minute reclaim window closes.</p></div>
+          <div class="sq-why"><b>The pattern:</b> "Can restart", "checkpoint", "fault-tolerant", "batch", "stateless" → Spot. If any of those words are missing and the job cannot be interrupted → On-Demand or Reserved.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A production database runs steadily 24/7 for the next 3 years. The team wants maximum cost savings. Reserved Instance or Savings Plan — which and why?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Standard Reserved Instance (3yr, all upfront)</strong> gives up to 72% discount — slightly higher than Compute Savings Plans (~66%). Since the workload is pure EC2, steady-state, and the instance family won't change, the RI lock-in is acceptable. Savings Plans win when you also run Fargate or Lambda.</p></div>
+          <div class="sq-why"><b>Decision rule:</b> EC2-only + stable instance type → Standard RI. Mixed compute (EC2 + Fargate + Lambda) or need flexibility to change instance types → Compute Savings Plan.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>An application on a t3.medium suddenly shows degraded performance during business hours even though no code changed. CPU metrics show consistent 95%+ usage. What's the root cause and fix?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>The t3.medium has exhausted its <strong>CPU credits</strong>. T-series instances run at a baseline CPU % and accumulate credits when idle. When credits run out under sustained load, the instance is throttled to its baseline (~20% for t3.medium). Fix: enable T Unlimited mode to burst beyond credits (you pay for the extra), or migrate to an M-series (M6i/M7g) which has no burst concept — just steady full CPU.</p></div>
+          <div class="sq-why"><b>Exam tell:</b> "Performance degraded gradually" or "worked fine at first then got slow" on a T-series instance = CPU credit exhaustion. "Sudden" degradation at a specific time = something else (traffic spike, code change).</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A financial firm needs to run Oracle Database with BYOL (Bring Your Own License). Oracle licenses are tied to physical CPU cores. Which EC2 tenancy model is required?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Dedicated Host.</strong> Oracle BYOL requires you to control the physical server to count and manage CPU sockets/cores for licensing. Dedicated Hosts give you a full physical server and visibility into its sockets, cores, and hardware. Dedicated Instances give isolation but no hardware visibility — not enough for Oracle BYOL.</p></div>
+          <div class="sq-why"><b>Dedicated Host vs Dedicated Instance:</b> Both isolate you from other AWS customers. Only Dedicated Hosts give you visibility into physical hardware details — needed for BYOL licensing that counts physical cores (Oracle, Windows Server).</div>
+        </div>
+      </div>
+    </div>
 
   <!-- ═══════════════ ENI ═══════════════ -->
   <div id="tab-eni" class="tab-panel">
@@ -562,7 +626,34 @@
       <span class="label">Source/dest check</span>
       If an EC2 instance is acting as a NAT instance or VPN router and traffic isn't flowing through it, the answer is almost always: disable source/destination check on its ENI. This check is ON by default and prevents packet forwarding.
     </div>
-  </div>
+
+    <div class="section">
+      <div class="section-title">ENI — scenario practice</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A highly available MySQL database runs on EC2 with a standby instance. The primary fails. You need to recover with the same IP address and minimal disruption. DNS failover takes 60+ seconds due to TTL. What's the fastest solution?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Detach the <strong>secondary ENI (with its Elastic IP)</strong> from the failed primary and attach it to the standby instance. The IP address doesn't change — clients reconnect to the same IP immediately. No DNS TTL wait, no code change, no client reconfiguration. Recovery time is seconds, not minutes.</p></div>
+          <div class="sq-why"><b>Why not DNS failover:</b> Route 53 failover is limited by TTL — even with a 60s TTL, clients may cache longer. ENI move is layer 3 — the IP is live on the new instance almost instantly.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>You set up an EC2 instance as a NAT instance so private subnet instances can reach the internet. Private instances can't get outbound connectivity. The instance is running and has the right route table entries. What are you missing?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Disable the <strong>source/destination check</strong> on the NAT instance's ENI. By default, EC2 drops any packet where it isn't the source or destination. A NAT instance forwards other instances' packets — those packets have the private instance as the source, not the NAT instance — so they get silently dropped. Disabling src/dst check allows forwarding.</p></div>
+          <div class="sq-why"><b>This is the #1 NAT instance gotcha.</b> Everything else can be correct (routes, SGs, IGW) and it still won't work until src/dst check is disabled. Same applies to VPN appliances or any EC2 acting as a router.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A software vendor's license is locked to a specific MAC address. Your team terminates the old EC2 instance and launches a new one. The license stops working. How do you fix this for future replacements?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Attach a <strong>dedicated ENI</strong> to the instance that holds the licensed MAC address. When you need to replace the instance, detach the ENI from the old one and attach it to the new one. The MAC address travels with the ENI — the license remains valid across any number of instance replacements.</p></div>
+          <div class="sq-why"><b>MAC address is per-ENI, not per-instance.</b> This is a real production pattern used with Windows Server, Oracle, and other MAC-locked licensing schemes.</div>
+        </div>
+      </div>
+    </div>
 
   <!-- ═══════════════ EBS ═══════════════ -->
   <div id="tab-ebs" class="tab-panel">
@@ -637,7 +728,42 @@
       <span class="label">IOPS vs Throughput — which metric matters?</span>
       IOPS = random small I/O ops per second. Throughput = MB/s for sequential large blocks. Databases → IOPS (io2/gp3). Data warehouses, Kafka, log processing → Throughput (st1). The exam will describe a workload — pick the right metric, then the right volume type.
     </div>
-  </div>
+
+    <div class="section">
+      <div class="section-title">EBS — scenario practice</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A team needs to move an EBS volume from us-east-1a to us-east-1b because their new EC2 instance was launched in the wrong AZ. How?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>EBS volumes are AZ-locked — you cannot directly move them. The two-step process: (1) <strong>Create a snapshot</strong> of the volume in us-east-1a. (2) <strong>Create a new volume from that snapshot</strong>, selecting us-east-1b as the AZ. Attach the new volume to the instance. For cross-region moves, add a step: copy the snapshot to the target region first.</p></div>
+          <div class="sq-why"><b>Always a 2-step for same-region, 3-step for cross-region.</b> Snapshot → new volume (same region) or snapshot → copy snapshot → new volume (cross-region). This exact flow appears on the exam regularly.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A database on gp2 needs more IOPS. A colleague says "just increase the volume size to get more IOPS." You're using gp3. Is the colleague right?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Wrong for gp3.</strong> On gp2, IOPS are tied to size (3 IOPS/GB) so increasing size increases IOPS — your colleague is thinking of gp2. On gp3, IOPS are <strong>provisioned independently</strong> of size. To get more IOPS on gp3, just increase the provisioned IOPS value directly — no need to pay for extra storage you don't need.</p></div>
+          <div class="sq-why"><b>This is the most common gp2/gp3 trap.</b> If you're on gp2 and need 16,000 IOPS, you need 5,333 GB. On gp3, you set 16,000 IOPS on a 1 GB volume. Always migrate to gp3 for new workloads.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A security audit requires that all EBS volumes be encrypted, but there's an existing unencrypted production volume with data on it. How do you encrypt it without losing the data?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>You cannot encrypt an EBS volume in-place. The 4-step process: (1) <strong>Snapshot</strong> the unencrypted volume. (2) <strong>Copy the snapshot</strong> with encryption enabled (KMS key selected during copy). (3) <strong>Create a new encrypted volume</strong> from the encrypted snapshot. (4) <strong>Detach the old volume</strong> and attach the new encrypted one. The data is preserved throughout.</p></div>
+          <div class="sq-why"><b>No direct encryption toggle exists.</b> The snapshot copy step is the only way. Going forward, enable "Encrypt new EBS volumes by default" at the account level so new volumes are always encrypted.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>An application writes large sequential log files to EBS. It's experiencing throughput bottlenecks but IOPS usage is low. Which volume type should you migrate to?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>st1 (Throughput Optimized HDD).</strong> Low IOPS + high sequential write = a throughput-bound workload, not IOPS-bound. st1 is optimised for exactly this: large sequential reads/writes at up to 500 MB/s at a low cost per GB. SSD (gp3/io2) would be wasted money — you don't need random I/O performance here.</p></div>
+          <div class="sq-why"><b>The mental model:</b> If the workload reads/writes large files from start to end (logs, video, Kafka topics, MapReduce) → HDD (st1). If it reads/writes random small blocks (databases, OS, app servers) → SSD (gp3/io2).</div>
+        </div>
+      </div>
+    </div>
 
   <!-- ═══════════════ EFS ═══════════════ -->
   <div id="tab-efs" class="tab-panel">
@@ -715,7 +841,42 @@
       <span class="label">Windows = not EFS</span>
       EFS is Linux/NFS only. Windows workloads needing shared file storage → <strong>Amazon FSx for Windows File Server</strong> (SMB protocol, NTFS filesystem, Active Directory integration). This distinction is tested frequently.
     </div>
-  </div>
+
+    <div class="section">
+      <div class="section-title">EFS — scenario practice</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>10 EC2 instances in an Auto Scaling Group serve a WordPress site. When one instance uploads an image, other instances can't see it. Users get broken images depending on which instance they hit. Fix this with the least operational overhead.</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Mount <strong>Amazon EFS</strong> on all instances and store the media library on EFS. All 10 instances (and any future ASG instances) mount the same filesystem — when one instance writes a file, all others see it immediately. EFS auto-scales, requires no capacity planning, and new ASG instances can be configured to mount at launch via user data.</p></div>
+          <div class="sq-why"><b>The signal words:</b> "shared files", "multiple instances", "ASG", "user uploads", "media library" → EFS. The alternative (S3 for media) is also valid but requires app code changes. EFS is a drop-in NFS mount — minimal code change.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>An EFS filesystem is getting expensive. Analysis shows 90% of files haven't been accessed in over 30 days. What's the cheapest fix that requires no application changes?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Enable <strong>EFS Intelligent-Tiering</strong> (or set a lifecycle policy to transition files to EFS-IA after 30 days of inactivity). Files are automatically moved to the cheaper IA tier with no application changes needed — the mount path stays the same, reads are transparent (just slightly slower and incur a per-GB retrieval fee). Storage cost drops by ~85% for the moved files.</p></div>
+          <div class="sq-why"><b>IA = Infrequent Access.</b> Storage is much cheaper but there's a per-access retrieval fee. If data is truly cold (accessed &lt;once/month), the math strongly favours IA. Intelligent-Tiering automates the decision.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Multiple ECS containers (across different tasks) need to share a writable persistent volume. You try using an EBS volume but only one task can mount it. What should you use instead?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>EFS.</strong> EBS volumes can only be attached to one EC2 instance at a time (the host running the task), and even then only one ECS task can use it. EFS can be mounted by all containers across all ECS tasks simultaneously with full read/write access. Define the EFS volume in the ECS task definition and mount it as a container volume.</p></div>
+          <div class="sq-why"><b>EBS = one instance, one task. EFS = many instances, many tasks.</b> In Kubernetes (EKS) terms: EBS = ReadWriteOnce PVC. EFS = ReadWriteMany PVC. Any time "multiple containers" or "multiple pods" need shared writable storage → EFS.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>EC2 instances in us-east-1 can't mount the EFS filesystem even though the mount target exists and the instance is in the same VPC. What do you check first?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Check the <strong>Security Group on the EFS mount target</strong>. It must allow inbound TCP port <strong>2049</strong> (NFS) from the EC2 instance's security group. The most common EFS connectivity issue is this SG rule missing. Also verify: the mount target exists in the same AZ as the instance, and the instance's SG allows outbound on port 2049.</p></div>
+          <div class="sq-why"><b>Port 2049 = NFS = EFS.</b> Memorise this. Exam questions about EFS connectivity issues almost always resolve to: mount target SG not allowing 2049, or mount target not existing in the instance's AZ.</div>
+        </div>
+      </div>
+    </div>
 
   <!-- ═══════════════ COMPARE ═══════════════ -->
   <div id="tab-compare" class="tab-panel">
@@ -758,33 +919,53 @@
 
     <div class="section">
       <div class="section-title">Decision guide — which to pick?</div>
-      <div class="scenario">
-        <div class="scenario-q">Single EC2 instance running MySQL, PostgreSQL, or MongoDB</div>
-        <div class="scenario-a">→ <b>EBS gp3</b>. Block storage, single instance. High IOPS needed? → io2. The database owns the volume exclusively.</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Single EC2 instance running MySQL, PostgreSQL, or MongoDB</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>EBS gp3.</strong> Block storage, single instance owns the volume. High IOPS needed (busy OLTP)? → io2. The DB is the only thing reading/writing — no sharing needed.</p></div>
+          <div class="sq-why"><b>Why not EFS:</b> EFS is NFS — databases don't run on NFS due to locking semantics and latency. Block storage (EBS) is always the right answer for databases on EC2.</div>
+        </div>
       </div>
-      <div class="scenario">
-        <div class="scenario-q">Multiple EC2 instances in an ASG sharing a media library or CMS content</div>
-        <div class="scenario-a">→ <b>EFS</b>. Concurrent multi-instance reads and writes across AZs. All instances see the same files immediately via shared POSIX filesystem.</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Multiple EC2 instances in an ASG serving a CMS (WordPress, Drupal) that stores media uploads on the filesystem</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>EFS.</strong> All ASG instances mount the same EFS filesystem. A file written by one instance is immediately visible to all others. No sticky sessions, no sync needed.</p></div>
+          <div class="sq-why"><b>Why not EBS:</b> EBS can only attach to one instance. In an ASG, each instance would have its own isolated EBS volume — writes on instance A would never reach instance B.</div>
+        </div>
       </div>
-      <div class="scenario">
-        <div class="scenario-q">Kubernetes (EKS) pods needing persistent shared storage</div>
-        <div class="scenario-a">→ <b>EFS</b> with EFS CSI driver + PVC with <b>ReadWriteMany</b>. EBS = ReadWriteOnce (one node). EFS = ReadWriteMany (all nodes).</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>EKS pods need persistent shared storage with ReadWriteMany access — multiple pods writing simultaneously</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>EFS</strong> with the EFS CSI driver and a PVC set to <strong>ReadWriteMany</strong>. EBS via the EBS CSI driver only supports ReadWriteOnce — a single node. EFS supports RWX — all nodes, all pods, simultaneously.</p></div>
+          <div class="sq-why"><b>K8s access modes:</b> RWO (ReadWriteOnce) = EBS. RWX (ReadWriteMany) = EFS. This maps directly to how EBS is single-instance and EFS is concurrent multi-instance.</div>
+        </div>
       </div>
-      <div class="scenario">
-        <div class="scenario-q">Hadoop HDFS, Cassandra, or Kafka on EC2</div>
-        <div class="scenario-a">→ <b>Instance Store</b> (NVMe) for highest I/O. Replicate at the application layer for durability. The app handles redundancy; the storage provides speed.</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Hadoop HDFS or Cassandra cluster on EC2 — needs highest possible I/O performance, application handles its own replication</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Instance Store (NVMe).</strong> Millions of IOPS, sub-millisecond latency, no network hop. HDFS and Cassandra replicate data across nodes at the application layer — durability is handled in software. The storage just needs to be fast. Instance store is included in the instance price.</p></div>
+          <div class="sq-why"><b>The trade-off:</b> Instance store is the fastest storage on AWS but it's ephemeral — lost on stop/terminate/hardware failure. Only use it when the application itself provides durability (replication). Never for a single-instance database.</div>
+        </div>
       </div>
-      <div class="scenario">
-        <div class="scenario-q">Temporary scratch space for a batch or ML training job</div>
-        <div class="scenario-a">→ <b>Instance Store</b>. Ephemeral is acceptable, fastest I/O, included in instance price. Data is gone when the job ends — that's fine.</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Cross-region disaster recovery — database EBS volumes need to be recoverable in another region</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Create <strong>EBS Snapshots</strong> (automated via AWS Backup or DLM) and configure <strong>cross-region snapshot copy</strong> to the DR region. In a disaster, create new EBS volumes from the snapshots in the DR region and attach to new instances. For EFS cross-region DR → use AWS DataSync.</p></div>
+          <div class="sq-why"><b>Snapshots are the EBS DR primitive.</b> They're incremental (only changed blocks after first), stored in S3 (durable), and can be copied cross-region. Always automate — never rely on manual snapshots for production.</div>
+        </div>
       </div>
-      <div class="scenario">
-        <div class="scenario-q">Cross-region DR copy of database volumes</div>
-        <div class="scenario-a">→ <b>EBS Snapshot</b> copied to target region → restore as volume. For EFS → use <b>AWS DataSync</b> to replicate cross-region or cross-account.</div>
-      </div>
-      <div class="scenario">
-        <div class="scenario-q">Windows file server shared across multiple EC2 Windows instances</div>
-        <div class="scenario-a">→ <b>Amazon FSx for Windows File Server</b>. EFS is Linux/NFS only. FSx supports SMB, NTFS, Active Directory, DFS namespaces.</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Multiple Windows EC2 instances need a shared network drive — users expect drive letters and Windows ACLs</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Amazon FSx for Windows File Server.</strong> EFS is Linux/NFS only — Windows cannot mount it natively. FSx for Windows supports SMB protocol, NTFS filesystem, Windows ACLs, DFS namespaces, and Active Directory integration. It's the managed Windows file server on AWS.</p></div>
+          <div class="sq-why"><b>The trap:</b> The question says "shared file system" which sounds like EFS — but "Windows" is the disqualifier. EFS = Linux + NFS. FSx for Windows = Windows + SMB. This is tested frequently.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -801,65 +982,89 @@
 
     <div class="section">
       <div class="section-title">EC2 exam patterns</div>
-      <div class="callout exam">
-        <span class="label">Spot vs On-Demand</span>
-        Fault-tolerant batch job that runs overnight → Spot. Stateful web server that cannot be interrupted → On-Demand or Reserved. Keywords "fault-tolerant" or "stateless" almost always point to Spot.
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A company wants the lowest cost for a fault-tolerant video transcoding job that can be re-run if interrupted. Which purchase model?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Spot Instances.</strong> Fault-tolerant + restartable = Spot. Up to 90% cheaper. Use a Spot interruption handler to checkpoint state on the 2-minute warning.</p></div>
+          <div class="sq-why"><b>Keywords → Spot:</b> "fault-tolerant", "stateless", "can restart", "batch", "flexible start/end time". <b>Keywords → On-Demand/Reserved:</b> "cannot be interrupted", "stateful", "critical", "always running".</div>
+        </div>
       </div>
-      <div class="callout exam">
-        <span class="label">Reserved vs Savings Plans</span>
-        Both give ~65–72% discounts. Savings Plans are more flexible (cover Fargate + Lambda). Standard RI gives the highest EC2 discount. Exam asks "most cost-effective for steady-state EC2" → Standard RI (1yr, no upfront = good balance). Needs Fargate too? → Compute Savings Plan.
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A startup runs EC2 24/7 for 3 years and also uses Fargate for containers. Which commitment option gives the best overall discount?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Compute Savings Plan.</strong> It covers EC2, Fargate, and Lambda under one $/hr commitment. Standard RIs give slightly higher EC2 discounts (~72% vs ~66%) but don't cover Fargate. When the workload spans multiple compute types, Savings Plans win on flexibility.</p></div>
+          <div class="sq-why"><b>Decision rule:</b> Pure EC2 + want max discount → Standard RI. EC2 + Fargate/Lambda → Compute Savings Plan. Need to change instance family in future → Convertible RI or Compute SP.</div>
+        </div>
       </div>
-      <div class="callout exam">
-        <span class="label">Placement groups</span>
-        Lowest latency / HPC / 10 Gbps between instances → Cluster PG (same rack, same AZ). Fault tolerance for critical instances → Spread PG (max 7/AZ, different hardware). HDFS, large distributed clusters → Partition PG (isolated partitions).
-      </div>
-      <div class="callout exam">
-        <span class="label">AMI and user data</span>
-        User data runs once on first boot — it's not for recurring config. For recurring config management → Systems Manager (SSM) or configuration management tools. AMIs bake the software in; user data bootstraps the instance.
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A distributed HPC simulation needs the absolute lowest network latency between 8 instances. Which placement group?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Cluster Placement Group.</strong> Packs all instances onto the same rack in the same AZ. Enables 10 Gbps+ between instances, lowest possible latency. Trade-off: if the rack fails, all instances fail together — no HA.</p></div>
+          <div class="sq-why"><b>Placement group cheat sheet:</b> Lowest latency / HPC → Cluster (same rack, same AZ). Max fault tolerance, few critical instances → Spread (max 7/AZ, different racks). Large distributed DB (HDFS/Cassandra) → Partition (isolated rack groups).</div>
+        </div>
       </div>
     </div>
 
     <div class="section">
       <div class="section-title">ENI exam patterns</div>
-      <div class="callout exam">
-        <span class="label">ENI for IP failover</span>
-        HA database, minimal failover disruption → move the secondary ENI (with EIP) to a standby instance. DNS-based failover has TTL issues (60s+). ENI move is near-instant. The IP follows the ENI.
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A primary EC2 database instance fails. The standby instance is ready. You need IP continuity — clients must reconnect to the same IP. What do you move?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Move the <strong>Elastic Network Interface (with its Elastic IP)</strong> from the failed instance to the standby. The IP is tied to the ENI — detach from failed, attach to standby. Clients reconnect to the same IP in seconds. No DNS change, no TTL wait.</p></div>
+          <div class="sq-why"><b>vs Route 53 failover:</b> R53 health checks + failover routing also work, but DNS TTL means 60s+ before clients switch. ENI move is layer 3 — near-instant. For strict RTO requirements, ENI is faster.</div>
+        </div>
       </div>
-      <div class="callout exam">
-        <span class="label">Source/destination check</span>
-        EC2 acting as NAT instance or router and traffic isn't passing → disable source/destination check on the ENI. It's enabled by default and causes the instance to drop forwarded packets.
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>An EC2 instance configured as a NAT gateway (NAT instance) isn't forwarding traffic for private subnet instances. Routes and SGs are correct. One setting is wrong — what is it?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Source/destination check is enabled.</strong> Disable it. When EC2 receives a packet that isn't addressed to it (which happens with every packet a NAT instance forwards), it drops it by default. Disabling src/dst check tells EC2 to forward those packets instead of dropping them.</p></div>
+          <div class="sq-why"><b>This only affects NAT instances (DIY EC2 NAT).</b> Managed NAT Gateway handles this automatically. On the exam, if they mention a NAT Instance (not NAT Gateway) and forwarding doesn't work → src/dst check.</div>
+        </div>
       </div>
     </div>
 
     <div class="section">
       <div class="section-title">EBS exam patterns</div>
-      <div class="callout exam">
-        <span class="label">Diagnosing I/O issues</span>
-        "High I/O requirements, experiencing latency" → upgrade to io2, check EBS-Optimized is enabled. "Throughput bottleneck on large sequential files" → st1. Remember: IOPS = random small I/O. Throughput = sequential large I/O.
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>An RDS-style workload on EC2 is experiencing high read/write latency. CloudWatch shows high VolumeQueueLength (I/O waiting). The volume is gp2 at 200 GB. What's the fix?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Migrate to <strong>gp3 with higher provisioned IOPS</strong>, or to <strong>io2</strong> for mission-critical. On gp2 at 200 GB you only get 600 IOPS (3×200). On gp3, you can provision up to 16,000 IOPS independently of size. Also verify EBS-Optimized is enabled on the instance — without it, EBS I/O competes with network traffic.</p></div>
+          <div class="sq-why"><b>VolumeQueueLength &gt; 1</b> is the CloudWatch signal for I/O saturation. The fix is more IOPS (gp3/io2), not more storage. On gp2, those two are coupled — on gp3 they're independent.</div>
+        </div>
       </div>
-      <div class="callout exam">
-        <span class="label">Cross-AZ volume move — 2-step</span>
-        EBS volumes are AZ-locked. To move: (1) create snapshot → (2) create new volume in target AZ from snapshot. Cross-region adds a step: copy snapshot to target region first.
-      </div>
-      <div class="callout exam">
-        <span class="label">Encrypting an unencrypted volume</span>
-        Cannot directly encrypt an existing volume. Steps: snapshot the volume → copy snapshot with encryption enabled → create encrypted volume from encrypted snapshot → detach old, attach new.
-      </div>
-      <div class="callout exam">
-        <span class="label">gp2 IOPS formula</span>
-        gp2 = 3 IOPS per GB, min 100, max 16,000. Need 16K IOPS on gp2 → need 5,333 GB. With gp3 → provision IOPS independently. Don't pay for unnecessary storage just to get IOPS.
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>After terminating an EC2 instance, the root EBS volume was also deleted — taking the data with it. How do you prevent this?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Set <strong>Delete on Termination = false</strong> for the root volume in the Launch Template. By default it's true for root volumes (false for additional data volumes). This is a common production mistake — always set it explicitly in your launch templates and AMI configurations.</p></div>
+          <div class="sq-why"><b>Default behaviour:</b> Root volume → deleted on termination (default ON). Data volumes → preserved on termination (default OFF). Know these defaults and always override in production launch templates.</div>
+        </div>
       </div>
     </div>
 
     <div class="section">
       <div class="section-title">EFS exam patterns</div>
-      <div class="callout exam">
-        <span class="label">The "shared file system" trigger</span>
-        Multiple EC2 instances need access to the same data → EFS. Web servers in an ASG share user uploads → EFS. Containers need shared persistent storage → EFS. Not S3 (object, not POSIX). Not EBS (single instance).
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A company migrates an on-premises NFS share to AWS. 20 Linux EC2 instances across 3 AZs need concurrent access to the same files. What service replaces the NFS share?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p><strong>Amazon EFS.</strong> It's a managed NFS (NFSv4) service that can be mounted by thousands of instances across multiple AZs simultaneously. Create one mount target per AZ, configure the instance SGs to allow port 2049, and mount using the EFS mount helper. Drop-in replacement for on-premises NFS.</p></div>
+          <div class="sq-why"><b>"NFS", "shared files", "multiple Linux instances", "across AZs"</b> → EFS every time. S3 is not a filesystem (no mount, no POSIX). EBS is single-instance. EFS is the NFS answer.</div>
+        </div>
       </div>
-      <div class="callout exam">
-        <span class="label">Cost optimization on EFS</span>
-        Reduce costs for an EFS filesystem where most data is rarely accessed → enable lifecycle policy to move to EFS-IA (or use Intelligent-Tiering). Retrieval costs apply but storage cost drops significantly.
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>An EFS file system stores 10 TB of data. Analytics show only 500 GB is accessed regularly — the rest hasn't been touched in 60 days. Monthly bill is high. What's the cheapest fix?</p></div>
+        <div class="sq a-row">
+          <div style="display:flex;gap:12px;align-items:flex-start"><span class="sq-badge a">A</span><p>Enable <strong>EFS Lifecycle Management</strong> with a 30-day transition policy to move files to <strong>EFS-IA (Infrequent Access)</strong>. The 9.5 TB of cold data moves to IA storage which costs ~85% less. Files are retrieved transparently when accessed — no application changes needed.</p></div>
+          <div class="sq-why"><b>EFS-IA vs Standard:</b> Standard ~$0.30/GB/month. IA ~$0.025/GB/month + $0.01/GB retrieval. For data accessed &lt;once/month the savings are dramatic. Enable Intelligent-Tiering to automate the decision instead of setting a fixed day threshold.</div>
+        </div>
       </div>
     </div>
 
