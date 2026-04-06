@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RDS, Aurora & ElastiCache | AWS SA Notes · Shreyas Rajiv</title>
+<meta name="description" content="RDS, Aurora, ElastiCache — scenario-based notes for AWS Solutions Architect SAA-C03. By Shreyas Rajiv.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink:        #1A1916;
+    --ink-2:      #5C5A55;
+    --ink-3:      #9C9A94;
+    --paper:      #F8F6F1;
+    --paper-2:    #EFEDE6;
+    --paper-3:    #E5E2D9;
+    --gold:       #B08D57;
+    --gold-light: #F0E8D8;
+    --rule:       rgba(26,25,22,0.10);
+    --rule-med:   rgba(26,25,22,0.18);
+    --blue:       #1A5FA8;
+    --blue-light: #EAF2FB;
+    --green:      #1A7D5B;
+    --green-light:#E6F5EF;
+    --purple:     #6040A8;
+    --purple-light:#F0ECFB;
+    --orange:     #B85C0A;
+    --orange-light:#FEF0E2;
+    --red:        #A02020;
+    --red-light:  #FCEAEA;
+    --teal:       #0D6E72;
+    --teal-light: #E0F4F5;
+    --r:          8px;
+    --r-lg:       14px;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: 48px 48px; pointer-events: none; z-index: 0; opacity: 0.45;
+  }
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 48px; height: 60px;
+    background: rgba(248,246,241,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .nav-brand { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); text-decoration: none; }
+  .nav-brand strong { color: var(--ink); font-weight: 500; }
+  .nav-right { display: flex; align-items: center; gap: 20px; }
+  .nav-chapter { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--gold); letter-spacing: 0.08em; background: var(--gold-light); padding: 4px 10px; border-radius: 99px; border: 1px solid rgba(176,141,87,0.22); }
+  .nav-back { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-3); text-decoration: none; letter-spacing: 0.06em; transition: color 0.2s; }
+  .nav-back:hover { color: var(--ink); }
+  .tab-bar {
+    position: sticky; top: 60px; z-index: 90;
+    background: rgba(248,246,241,0.95); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--rule);
+    display: flex; overflow-x: auto; scrollbar-width: none; padding: 0 40px;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 14px 18px; border: none; background: none; cursor: pointer;
+    color: var(--ink-3); border-bottom: 2px solid transparent;
+    margin-bottom: -1px; white-space: nowrap; transition: color 0.15s, border-color 0.15s;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active { color: var(--ink); border-bottom-color: var(--ink); }
+  .tab-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: fadeUp 0.2s ease; }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+  .page { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 0 40px 80px; }
+  .svc-header { display: flex; align-items: flex-start; gap: 18px; padding: 28px 0 32px; border-bottom: 1px solid var(--rule); margin-bottom: 40px; }
+  .svc-icon { width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+  .svc-header h2 { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; margin-bottom: 6px; letter-spacing: -0.02em; }
+  .svc-header p { font-size: 13.5px; color: var(--ink-2); line-height: 1.7; }
+  .section { margin-bottom: 40px; }
+  .section-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card { background: #fff; border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 16px 18px; transition: border-color 0.15s, box-shadow 0.15s; }
+  .card:hover { border-color: var(--rule-med); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+  .card-title { font-size: 13px; font-weight: 500; margin-bottom: 7px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .card p { font-size: 12.5px; color: var(--ink-2); line-height: 1.65; }
+  .card p strong { color: var(--ink); font-weight: 500; }
+  .kv { width: 100%; border-collapse: collapse; }
+  .kv tr { border-bottom: 1px solid var(--rule); }
+  .kv tr:last-child { border-bottom: none; }
+  .kv td { padding: 10px 0; font-size: 13px; vertical-align: top; }
+  .kv td:first-child { color: var(--ink-2); width: 32%; padding-right: 18px; font-weight: 500; font-size: 11.5px; font-family: 'DM Mono', monospace; letter-spacing: 0.02em; }
+  .kv td code { font-family: 'DM Mono', monospace; font-size: 11.5px; background: var(--paper-2); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 6px; }
+  .kv td strong { font-weight: 500; }
+  .kv td ul { padding-left: 16px; }
+  .kv td li { margin-top: 4px; font-size: 12.5px; color: var(--ink-2); line-height: 1.6; }
+  .kv td li strong { color: var(--ink); }
+  .callout { border-left: 3px solid; padding: 12px 18px; border-radius: 0 var(--r) var(--r) 0; margin-bottom: 10px; font-size: 13px; line-height: 1.7; }
+  .callout .label { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .callout strong { font-weight: 500; }
+  .callout.exam  { border-color: var(--purple); background: var(--purple-light); color: #3a2570; }
+  .callout.prod  { border-color: var(--blue);   background: var(--blue-light);   color: #0f3d72; }
+  .callout.warn  { border-color: var(--orange);  background: var(--orange-light); color: var(--orange); }
+  .callout.tip   { border-color: var(--green);   background: var(--green-light);  color: #0f4d38; }
+  .callout.trap  { border-color: var(--red);     background: var(--red-light);    color: var(--red); }
+  .scenario-block { border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; margin-bottom: 12px; transition: border-color 0.15s; }
+  .scenario-block:hover { border-color: var(--rule-med); }
+  .sq { display: flex; gap: 12px; align-items: flex-start; padding: 13px 18px; }
+  .sq.q-row { background: var(--paper-2); border-bottom: 1px solid var(--rule); }
+  .sq.a-row { background: #fff; flex-direction: column; gap: 8px; }
+  .sq-badge { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; flex-shrink: 0; margin-top: 1px; }
+  .sq-badge.q { background: var(--paper-3); color: var(--ink-3); border: 1px solid var(--rule-med); }
+  .sq-badge.a { background: var(--green-light); color: var(--green); }
+  .sq p { font-size: 13px; line-height: 1.65; }
+  .sq p strong { font-weight: 500; }
+  .ans-line { display: flex; gap: 12px; align-items: flex-start; }
+  .sq-why { font-size: 12px; color: var(--ink-2); line-height: 1.65; border-top: 1px solid var(--rule); padding-top: 10px; margin-top: 2px; }
+  .sq-why b { color: var(--ink); font-weight: 500; }
+  .arch { background: #fff; border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 20px 24px; margin-bottom: 16px; overflow-x: auto; }
+  .arch-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 16px; }
+  .arch-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .arch-box { padding: 6px 14px; border-radius: 6px; border: 1px solid; font-size: 12px; white-space: nowrap; font-family: 'DM Mono', monospace; }
+  .arch-box.blue   { background: var(--blue-light);   color: var(--blue);   border-color: rgba(26,95,168,0.25); }
+  .arch-box.green  { background: var(--green-light);  color: var(--green);  border-color: rgba(26,125,91,0.25); }
+  .arch-box.purple { background: var(--purple-light); color: var(--purple); border-color: rgba(96,64,168,0.25); }
+  .arch-box.orange { background: var(--orange-light); color: var(--orange); border-color: rgba(184,92,10,0.25); }
+  .arch-box.teal   { background: var(--teal-light);   color: var(--teal);   border-color: rgba(13,110,114,0.25); }
+  .arch-box.gray   { background: var(--paper-2);      color: var(--ink-2);  border-color: var(--rule-med); }
+  .arch-arrow { color: var(--ink-3); font-size: 14px; }
+  .arch-note { font-size: 11.5px; color: var(--ink-3); margin-top: 8px; font-family: 'DM Sans', sans-serif; line-height: 1.6; }
+  .cmp-wrap { overflow-x: auto; border-radius: var(--r-lg); border: 1px solid var(--rule); margin-bottom: 16px; }
+  .cmp { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 500px; }
+  .cmp th { text-align: left; padding: 10px 16px; font-weight: 500; font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; background: var(--paper-2); border-bottom: 1px solid var(--rule); }
+  .cmp td { padding: 9px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; font-size: 12.5px; }
+  .cmp tr:last-child td { border-bottom: none; }
+  .cmp td:first-child { font-weight: 500; color: var(--ink-2); font-size: 11.5px; font-family: 'DM Mono', monospace; }
+  .qf { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .qf tr { border-bottom: 1px solid var(--rule); }
+  .qf tr:last-child { border-bottom: none; }
+  .qf td { padding: 9px 0; vertical-align: top; }
+  .qf td:first-child { color: var(--ink-2); width: 44%; font-weight: 500; padding-right: 20px; font-family: 'DM Mono', monospace; font-size: 11.5px; }
+  footer { position: relative; z-index: 1; border-top: 1px solid var(--rule); padding: 28px 40px; display: flex; justify-content: space-between; align-items: center; max-width: 960px; margin: 40px auto 0; flex-wrap: wrap; gap: 8px; }
+  footer p { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  footer a { color: var(--ink-2); text-decoration: none; }
+  footer a:hover { color: var(--ink); }
+  .fade-in { opacity: 0; transform: translateY(16px); transition: opacity 0.5s ease, transform 0.5s ease; }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+  @media (max-width: 680px) {
+    nav { padding: 0 20px; }
+    .tab-bar { padding: 0 16px; }
+    .page { padding: 0 20px 60px; }
+    footer { padding: 24px 20px; }
+    .svc-header { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="index.html"><strong>Shreyas Rajiv</strong> &nbsp;/&nbsp; AWS SA Notes</a>
+  <div class="nav-right">
+    <span class="nav-chapter">Chapter 05</span>
+    <a class="nav-back" href="index.html">← All chapters</a>
+  </div>
+</nav>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('rds',this)"><span class="tab-dot" style="background:#1A5FA8"></span>RDS</button>
+  <button class="tab-btn" onclick="showTab('aurora',this)"><span class="tab-dot" style="background:#1A7D5B"></span>Aurora</button>
+  <button class="tab-btn" onclick="showTab('backup',this)"><span class="tab-dot" style="background:#6040A8"></span>Backups &amp; Security</button>
+  <button class="tab-btn" onclick="showTab('elasticache',this)"><span class="tab-dot" style="background:#0D6E72"></span>ElastiCache</button>
+  <button class="tab-btn" onclick="showTab('exam',this)"><span class="tab-dot" style="background:#B08D57"></span>Exam Tips</button>
+</div>
+
+<div class="page">
+
+  <!-- ══ RDS ══ -->
+  <div id="tab-rds" class="tab-panel active">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#EAF2FB;">🗄️</div>
+      <div>
+        <h2>RDS — Relational Database Service</h2>
+        <p>Managed relational database. AWS handles provisioning, patching, backups, monitoring, and hardware failure. Supports MySQL, PostgreSQL, MariaDB, Oracle, SQL Server, and Db2. You connect over standard DB protocols — but you cannot SSH into the underlying instance.</p>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">RDS vs DB on EC2 — why managed wins</div>
+      <div class="cards">
+        <div class="card">
+          <div class="card-title" style="color:var(--blue);">What RDS handles for you</div>
+          <p>OS patching, DB engine patching, automated backups, point-in-time restore, Multi-AZ failover, read replica creation, storage auto-scaling, CloudWatch monitoring, parameter groups. <strong>You manage the schema and queries — AWS manages everything else.</strong></p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--orange);">What you give up vs EC2</div>
+          <p>No SSH access. Can't install custom OS-level software or agents. Can't use unsupported DB engines. <strong>RDS Custom</strong> gives some of this back for Oracle and SQL Server when you genuinely need OS access.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--green);">When EC2+DB makes sense</div>
+          <p>Unsupported DB engines, OS-level tuning requirements, very specific version pinning, or software that must co-locate with the DB. Rare — RDS wins operationally almost every time.</p>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A team debates EC2+PostgreSQL vs RDS PostgreSQL. What specifically does the team stop managing by choosing RDS?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>With RDS: no more OS patching, DB engine upgrades, hardware provisioning, storage scaling, backup scheduling, Multi-AZ replication setup, read replica creation, or failover configuration. The team still manages: DB schema, users, query optimisation, parameter groups, security groups. The operational compound interest is enormous — no more 2am patching windows.</p></div>
+          <div class="sq-why"><b>Exam framing:</b> "Managed service", "less operational overhead", "undifferentiated heavy lifting" → RDS over EC2. Only choose EC2+DB when there's a specific requirement RDS cannot satisfy.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">RDS Storage Auto Scaling</div>
+      <table class="kv">
+        <tr><td>What it does</td><td>Automatically increases EBS storage when free space runs low — no manual action, no downtime. You set a <strong>Maximum Storage Threshold</strong> as a cost ceiling.</td></tr>
+        <tr><td>Trigger condition</td><td>Free storage &lt;10% of allocated AND this lasts &gt;5 minutes AND 6+ hours since last modification.</td></tr>
+        <tr><td>Important caveat</td><td>Storage only <strong>scales up — never down</strong>. A temporary data migration that balloons the DB leaves that storage allocated permanently. Plan the max threshold carefully.</td></tr>
+      </table>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">Read Replicas vs Multi-AZ — the most tested distinction</div>
+
+      <div class="arch">
+        <div class="arch-title">Read Replicas — for performance (read scale-out)</div>
+        <div class="arch-row">
+          <span class="arch-box blue">App (writes)</span><span class="arch-arrow">→</span>
+          <span class="arch-box blue">Primary (us-east-1a)</span><span class="arch-arrow">async →</span>
+          <span class="arch-box green">Replica 1 (us-east-1b)</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-box blue">App (reads)</span><span class="arch-arrow">→</span>
+          <span class="arch-box green">Replica 2 (us-east-1c)</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-box blue">App (reads)</span><span class="arch-arrow">→</span>
+          <span class="arch-box orange">Replica 3 (eu-west-1) — cross-region</span>
+        </div>
+        <p class="arch-note">Async replication → replicas may lag. Up to 5. Can be promoted to standalone. <strong>Not for failover — for read scaling. App must explicitly use replica endpoint.</strong></p>
+      </div>
+
+      <div class="arch">
+        <div class="arch-title">Multi-AZ — for disaster recovery (auto failover)</div>
+        <div class="arch-row">
+          <span class="arch-box blue">App</span><span class="arch-arrow">→</span>
+          <span class="arch-box blue">Primary (us-east-1a)</span><span class="arch-arrow">sync →</span>
+          <span class="arch-box gray">Standby (us-east-1b) — NOT readable</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-arrow" style="margin-left:8px">↓ primary fails → DNS flips automatically (~60s)</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-box blue">App (same endpoint)</span><span class="arch-arrow">→</span>
+          <span class="arch-box green">Standby promoted to primary</span>
+        </div>
+        <p class="arch-note">Sync replication — standby always in lockstep. One DNS endpoint AWS flips on failover. Standby is <strong>never readable</strong> — exists purely for DR.</p>
+      </div>
+
+      <div class="cmp-wrap">
+        <table class="cmp">
+          <thead><tr><th>Dimension</th><th>Read Replica</th><th>Multi-AZ Standby</th></tr></thead>
+          <tbody>
+            <tr><td>Purpose</td><td>Read scaling (performance)</td><td>Disaster recovery (availability)</td></tr>
+            <tr><td>Replication</td><td>Async (slight lag possible)</td><td>Sync (always in lockstep)</td></tr>
+            <tr><td>Readable?</td><td>Yes — send reads here</td><td>No — standby only</td></tr>
+            <tr><td>Auto failover?</td><td>No — manual promotion</td><td>Yes — automatic DNS flip</td></tr>
+            <tr><td>Cross-region?</td><td>Yes (charged)</td><td>No (same region)</td></tr>
+            <tr><td>Use when</td><td>Reporting, analytics, read-heavy apps</td><td>Production DB needing HA</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A production MySQL RDS serves a read-heavy analytics dashboard that's slowing down the main app. What do you add, and what app change is needed?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Create one or more <strong>Read Replicas</strong>. Point the dashboard's connection string to the replica endpoint. The main app continues writing to the primary. <strong>The app must explicitly use the replica endpoint</strong> — RDS does not auto-route reads. The replica absorbs dashboard queries; primary writes are unaffected.</p></div>
+          <div class="sq-why"><b>The app change is mandatory.</b> Adding a read replica alone changes nothing — your code must use the replica's endpoint for reads. A common exam distractor is implying that RDS automatically load-balances reads to replicas. It does not.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A company wants to migrate RDS MySQL from us-east-1 to eu-west-1 with minimum downtime. How?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Create a <strong>cross-region Read Replica in eu-west-1</strong>. Once replication catches up, <strong>promote the replica</strong> to a standalone DB in eu-west-1. Update the app connection string. Schedule the promotion during low traffic to minimise the lag window. No data loss if done carefully.</p></div>
+          <div class="sq-why"><b>Read replicas can be promoted to standalone primary DBs.</b> This is the standard cross-region migration pattern. Once promoted, the replica is independent — no sync back to the original region.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>An RDS instance has both Multi-AZ and a Read Replica. The primary fails. What happens to each?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p><strong>Multi-AZ:</strong> Standby is automatically promoted in ~60s. DNS endpoint stays the same — app reconnects automatically. <strong>Read Replica:</strong> Continues replicating, now from the promoted standby. No action needed on the replica.</p></div>
+          <div class="sq-why"><b>They serve different purposes.</b> Multi-AZ = automatic failover for resilience. Read Replica = read scaling. Use both in production: Multi-AZ for HA, read replicas for performance.</div>
+        </div>
+      </div>
+
+      <div class="callout exam">
+        <span class="label">Replication cost — same-region vs cross-region</span>
+        Read Replica replication within the <strong>same region = free</strong> (even across AZs). Cross-region Read Replica replication = <strong>charged</strong>. Multi-AZ sync replication = always free. This appears in cost-optimisation questions.
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">RDS Custom</div>
+      <table class="kv">
+        <tr><td>What it is</td><td>RDS for Oracle and SQL Server with SSH/SSM access to the underlying EC2 instance. Install custom OS patches, monitoring agents, or licensing tools while keeping some RDS management.</td></tr>
+        <tr><td>Exam trigger</td><td>"Need OS access on RDS", "custom OS patches", "install agents on RDS" → RDS Custom. Oracle and SQL Server only.</td></tr>
+      </table>
+    </div>
+  </div><!-- /tab-rds -->
+
+
+  <!-- ══ AURORA ══ -->
+  <div id="tab-aurora" class="tab-panel">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#E6F5EF;">⚡</div>
+      <div>
+        <h2>Aurora</h2>
+        <p>AWS's proprietary cloud-native relational database. MySQL and PostgreSQL compatible. 5× MySQL throughput, 3× PostgreSQL throughput at similar cost. Storage auto-grows in 10 GB increments to 128 TB. Everything about Aurora is designed for HA and scale from the ground up.</p>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">Aurora High Availability — the storage layer is everything</div>
+
+      <div class="arch">
+        <div class="arch-title">Aurora storage — 6 copies across 3 AZs, always</div>
+        <div class="arch-row">
+          <span class="arch-box green">Aurora Writer (Primary)</span><span class="arch-arrow">→ writes to →</span>
+          <span class="arch-box teal">Shared distributed storage (6 copies, 3 AZs)</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-box green">Aurora Reader 1</span><span class="arch-arrow">→ reads from →</span>
+          <span class="arch-box teal">same shared storage (zero replication lag)</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-box green">Aurora Reader 2</span><span class="arch-arrow">→ reads from →</span>
+          <span class="arch-box teal">same shared storage (zero replication lag)</span>
+        </div>
+        <p class="arch-note">6 copies across 3 AZs. Tolerates 2 copy losses without write impact, 3 copy losses without read impact. Self-healing — corrupted blocks replaced automatically. Write quorum = 4/6 copies.</p>
+      </div>
+
+      <table class="kv">
+        <tr><td>Failover time</td><td>&lt;30 seconds — promotes a read replica to writer. Since all replicas share the same storage, there's no data to sync. Much faster than RDS Multi-AZ (~60s).</td></tr>
+        <tr><td>Read replicas</td><td>Up to <strong>15</strong> (vs 5 for RDS). All read from the same shared storage — zero replication lag. Any can be promoted to writer.</td></tr>
+        <tr><td>Aurora Global</td><td>One primary region, up to 5 secondary regions. Cross-region replication &lt;1 second lag. Secondary promotable to primary in &lt;1 minute for global DR.</td></tr>
+      </table>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">Aurora DB Cluster — Endpoints explained</div>
+
+      <div class="arch">
+        <div class="arch-title">One cluster, multiple connection endpoints</div>
+        <div class="arch-row">
+          <span class="arch-box blue">App (writes)</span><span class="arch-arrow">→</span>
+          <span class="arch-box green">Writer Endpoint — always points to current master</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-box blue">App (reads)</span><span class="arch-arrow">→</span>
+          <span class="arch-box teal">Reader Endpoint — load balances across all replicas</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-box blue">Analytics team</span><span class="arch-arrow">→</span>
+          <span class="arch-box purple">Custom Endpoint — specific subset (e.g. large r6g instances only)</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-box orange">Instance Endpoint — direct to one instance (avoid in prod)</span>
+        </div>
+        <p class="arch-note">Writer Endpoint auto-flips to new master on failover. Reader Endpoint does connection-level (not query-level) load balancing. Custom Endpoints enable workload isolation within the same cluster.</p>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Aurora has 3 small replicas for the app and 2 large replicas for analytics. Analytics queries are slow because they compete with app read traffic on the Reader Endpoint. Fix without a new cluster.</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Create two <strong>Custom Endpoints</strong>: one pointing to the 2 large replicas (for analytics), one to the 3 smaller replicas (for the app). Each team connects to their custom endpoint. Workloads are isolated — analytics can run heavy queries without affecting app read latency, all within the same Aurora cluster.</p></div>
+          <div class="sq-why"><b>Custom Endpoints = workload isolation without separate clusters.</b> This saves the cost of a second Aurora cluster. A common exam scenario: "isolate analytics from app reads" → Custom Endpoint, not a new cluster.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Aurora primary writer fails. What happens to the Writer Endpoint? Does the app need to change its connection string?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p><strong>No change needed.</strong> Aurora promotes a read replica to writer in &lt;30s and <strong>updates the Writer Endpoint DNS automatically</strong>. The app reconnects to the same URL — it's now talking to the new primary. This is the entire point of the Writer Endpoint: it abstracts away which physical instance is master.</p></div>
+          <div class="sq-why"><b>Never hardcode Aurora instance endpoints in production.</b> Always use Writer Endpoint for writes, Reader/Custom Endpoint for reads. Instance endpoints break on any topology change.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">Aurora Serverless</div>
+      <table class="kv">
+        <tr><td>What it is</td><td>Aurora that auto-scales compute up/down based on load — including scaling to zero when idle. Define min/max ACU (Aurora Capacity Unit) range. No instance to size or manage.</td></tr>
+        <tr><td>Connection proxy</td><td>A managed proxy fleet sits in front. Your app connects to the proxy endpoint. Scaling happens behind it — connections are maintained through scale events.</td></tr>
+        <tr><td>Best for</td><td>Infrequent or unpredictable workloads: dev/test, new apps with unknown traffic, multi-tenant SaaS with irregular usage, apps with long idle periods.</td></tr>
+        <tr><td>v1 vs v2</td><td>v2 is current. Scales in fine 0.5 ACU increments, much faster scaling, supports Multi-AZ + read replicas + Global Database. Always use v2 for new workloads.</td></tr>
+      </table>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A SaaS company has hundreds of small customers, each needing an isolated DB. Most are inactive 20+ hours/day. Provisioned Aurora per customer is too expensive. What's the solution?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p><strong>Aurora Serverless v2</strong> per customer. Scales to near-zero during inactivity — the idle DB costs almost nothing. When a customer logs in, Aurora scales up in seconds. You pay per ACU-second consumed, not for provisioned capacity sitting idle. For hundreds of sporadic DBs, the cost savings are dramatic vs provisioned.</p></div>
+          <div class="sq-why"><b>Serverless = sporadic/unpredictable workloads. Provisioned = consistent/predictable.</b> Provisioned charges 24/7 regardless of use. Serverless charges per-second of actual capacity. Brief scale-up latency is the trade-off.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">Aurora key features — know every one of these</div>
+      <table class="kv">
+        <tr><td>Automatic failover</td><td>Promotes read replica to writer in &lt;30s. Tier priority 0–15 determines which replica goes first. No data loss — shared storage.</td></tr>
+        <tr><td>Backup &amp; Recovery</td><td>Continuous S3 backup, always on (can't disable). PITR to any second within retention window (1–35 days). No performance impact.</td></tr>
+        <tr><td>Backtrack</td><td>Rewind the cluster in-place to any point in a configurable window (up to 72h). <strong>No new cluster. No restore from backup. Fast.</strong> MySQL-compatible only. Use for accidental deletes/updates.</td></tr>
+        <tr><td>Zero-downtime patching</td><td>Online patching — connections briefly held, patch applies, connections resume. No maintenance window needed for most patches.</td></tr>
+        <tr><td>Push-button scaling</td><td>Change instance size from console/CLI. Aurora handles the failover to resize with brief interruption.</td></tr>
+        <tr><td>Performance Insights</td><td>Query-level analysis — shows which queries consume the most DB time. Identify bottlenecks without digging through slow query logs.</td></tr>
+        <tr><td>IAM DB Auth</td><td>Use IAM token (valid 15 min) instead of password. Works for MySQL/PostgreSQL. No stored password in app code.</td></tr>
+        <tr><td>DB Cloning</td><td>Clone entire Aurora cluster in minutes using copy-on-write. Clone shares storage with source until data diverges. Fast, cheap, zero production impact. Use for staging/test environments.</td></tr>
+        <tr><td>Babelfish</td><td>Aurora PostgreSQL feature. Provides SQL Server TDS protocol endpoint that understands T-SQL. SQL Server apps connect without code changes. For SQL Server → Aurora PostgreSQL migrations.</td></tr>
+      </table>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A developer accidentally ran <code>DELETE FROM orders WHERE 1=1</code> on production Aurora MySQL. Restoring from backup would take hours. Faster option?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Use <strong>Aurora Backtrack</strong>. Rewind the cluster to a point just before the DELETE — takes minutes, not hours, and happens in-place (same cluster, no new instance). Configure a Backtrack window that covers enough time for your team to catch such mistakes (e.g. 24h). No backup restore, no cluster recreation.</p></div>
+          <div class="sq-why"><b>Backtrack vs PITR:</b> Backtrack = fast (minutes), in-place, same cluster, MySQL only, max 72h window. PITR = slower, creates new cluster, available for full retention period (35 days), both MySQL and PostgreSQL. For "accidental delete, fast recovery" → Backtrack if MySQL.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A company migrates from SQL Server on-premises to AWS. Thousands of T-SQL stored procedures can't be rewritten. What Aurora feature helps?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p><strong>Babelfish for Aurora PostgreSQL.</strong> Provides a SQL Server-compatible TDS endpoint that understands T-SQL. The app connects to Aurora as if it were SQL Server — stored procedures, drivers, and queries work without modification. You get Aurora's managed benefits while the app team migrates gradually.</p></div>
+          <div class="sq-why"><b>Exam trigger: "SQL Server app → Aurora, minimal code change" → Babelfish.</b> It's specifically for SQL Server to Aurora PostgreSQL migrations, not a general SQL translation tool.</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-aurora -->
+
+
+  <!-- ══ BACKUPS & SECURITY ══ -->
+  <div id="tab-backup" class="tab-panel">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#F0ECFB;">🔐</div>
+      <div>
+        <h2>Backups, Restoration, Security &amp; Proxy</h2>
+        <p>How RDS and Aurora handle data durability, how you restore from failures, how security works at every layer, and how RDS Proxy solves the Lambda connection problem.</p>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">RDS Backups</div>
+      <table class="kv">
+        <tr><td>Automated backups</td><td>Daily full snapshot + transaction logs every 5 minutes → PITR to any second. Retention 1–35 days. <strong>Deleted when the RDS instance is deleted.</strong></td></tr>
+        <tr><td>Manual snapshots</td><td>User-triggered. Persist after instance deletion. No retention limit. Take before: deleting an instance, major migrations, engine upgrades.</td></tr>
+        <tr><td>Restoring</td><td>Always creates a <strong>new RDS instance</strong> — no in-place restore. For PITR: AWS restores closest snapshot then replays transaction logs to reach target time.</td></tr>
+        <tr><td>Cross-region</td><td>Enable automated backup replication to another region. Manual snapshots: copy to another region. Use for DR — restore from cross-region backup if primary region fails.</td></tr>
+      </table>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A team deleted an RDS instance over the weekend to save costs. Monday they need data from it. Can they recover?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Only if a <strong>manual snapshot</strong> was taken before deletion. Automated backups are <strong>deleted with the instance</strong> — they don't survive instance deletion. If only automated backups existed, the data is gone. Going forward: always take a final manual snapshot before deleting any RDS instance.</p></div>
+          <div class="sq-why"><b>Automated backup ≠ permanent storage.</b> Manual snapshots = your permanent safety net. They persist until you explicitly delete them. This is a critical operational pattern: take manual snapshot → delete instance. Never skip the snapshot step.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">Aurora Backups &amp; Cloning</div>
+      <table class="kv">
+        <tr><td>Automated</td><td>Continuous to S3, always on, <strong>cannot be disabled</strong>. PITR to any second. No performance impact (separate storage subsystem).</td></tr>
+        <tr><td>Backtrack</td><td>In-place rewind, no new cluster, up to 72h window, MySQL-compatible only.</td></tr>
+        <tr><td>DB Cloning</td><td>Copy-on-write clone of entire cluster in minutes. Shares storage with source until data diverges. <strong>Much faster than backup restore.</strong> Zero production impact. Use for staging/test.</td></tr>
+      </table>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>You need a staging environment with a copy of production Aurora data to test a schema migration. Fastest approach with no production impact?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Use <strong>Aurora Database Cloning</strong>. Creates the clone in minutes using copy-on-write — it initially shares the same storage pages as production. Only when clone or production writes new data does storage diverge. Zero performance impact on production, much faster than backup restore, and cheap until data diverges significantly.</p></div>
+          <div class="sq-why"><b>Cloning vs PITR:</b> Cloning = fast (minutes), copy-on-write, data as of right now. PITR = slower, new cluster, data as of a specific past time. For staging/test with current data → Cloning. For recovering from a past incident → PITR.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">RDS &amp; Aurora Security</div>
+      <table class="kv">
+        <tr><td>Encryption at rest</td><td>KMS (AES-256). Must be enabled at creation — <strong>cannot enable retroactively</strong>. To encrypt existing: snapshot → copy with encryption → restore from encrypted snapshot.</td></tr>
+        <tr><td>Encryption in transit</td><td>TLS/SSL. Enforce via parameter group (<code>rds.force_ssl=1</code> for PostgreSQL, <code>require_secure_transport=ON</code> for MySQL).</td></tr>
+        <tr><td>Network isolation</td><td>Always deploy in a private subnet. Security groups control DB port access. No public internet access unless explicitly required (avoid).</td></tr>
+        <tr><td>IAM DB Authentication</td><td>Use IAM-generated auth token (valid 15 min) instead of password. Works for MySQL and PostgreSQL on RDS/Aurora. IAM role controls who can generate tokens — no stored passwords in code.</td></tr>
+        <tr><td>Secrets Manager</td><td>Store DB password in Secrets Manager with automatic rotation. App fetches secret at runtime via SDK. RDS integrates natively for automatic password rotation on schedule.</td></tr>
+        <tr><td>Audit Logs</td><td>Enable DB audit logging → stream to CloudWatch Logs. Captures logins, queries, schema changes. Required for compliance.</td></tr>
+      </table>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A compliance audit requires no database passwords in code or environment variables. How do you handle RDS credentials?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p><strong>Option 1 — Secrets Manager:</strong> Store DB password as a secret. Grant the app's IAM role access. App fetches the secret at runtime via SDK. Enable automatic rotation — Secrets Manager rotates the password on schedule, app always fetches the current value. <strong>Option 2 — IAM DB Authentication:</strong> The app uses its IAM role to generate a temporary 15-min token used as the DB password. No stored password at all.</p></div>
+          <div class="sq-why"><b>Secrets Manager = any secret, auto-rotates, all DBs. IAM Auth = zero-password, tokens only, MySQL/PostgreSQL on RDS/Aurora.</b> Both satisfy the compliance requirement. IAM Auth is cleaner architecturally but only works for supported engines.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">RDS Proxy</div>
+
+      <div class="arch">
+        <div class="arch-title">RDS Proxy — connection pooling between app and RDS</div>
+        <div class="arch-row">
+          <span class="arch-box blue">1000 Lambda invocations</span><span class="arch-arrow">→</span>
+          <span class="arch-box purple">RDS Proxy (pool)</span><span class="arch-arrow">→</span>
+          <span class="arch-box green">RDS (20 actual connections)</span>
+        </div>
+        <p class="arch-note">Without proxy: 1000 Lambda = 1000 DB connections = DB overwhelmed. With proxy: 1000 Lambda → proxy pools to ~20 actual connections. Fully managed, serverless, auto-scales.</p>
+      </div>
+
+      <table class="kv">
+        <tr><td>Problem it solves</td><td>Lambda, ECS tasks open/close DB connections rapidly. DBs have a max connection limit. Too many = "too many connections" errors and connection overhead that degrades performance.</td></tr>
+        <tr><td>Connection pooling</td><td>Proxy maintains warm DB connections. App connects to proxy; proxy multiplexes onto far fewer actual DB connections. Huge reduction in connection overhead.</td></tr>
+        <tr><td>Failover</td><td>On RDS/Aurora failover, proxy reconnects to new primary internally. App's connection to proxy stays stable — failover is faster and more transparent than direct connection.</td></tr>
+        <tr><td>IAM Auth enforcement</td><td>Proxy can enforce IAM auth. Apps authenticate to proxy via IAM — Secrets Manager stores the actual DB password, proxy fetches it. No DB password in app config.</td></tr>
+        <tr><td>VPC only</td><td>RDS Proxy is never publicly accessible. Lambda functions that need it must be inside the same VPC (or peered VPC).</td></tr>
+      </table>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Lambda functions connecting to RDS MySQL throw "too many connections" during peak load. Fix with minimum code change.</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Add <strong>RDS Proxy</strong> in front of RDS. Update Lambda's connection string from the RDS endpoint to the Proxy endpoint — that's the only code change. The proxy pools connections: regardless of how many Lambda invocations run concurrently, the proxy maintains a small stable pool of actual DB connections. Lambda scales to thousands; DB sees dozens.</p></div>
+          <div class="sq-why"><b>Lambda + DB = always consider RDS Proxy.</b> Lambda is stateless and concurrent — fundamentally incompatible with traditional DB connection limits. This is the canonical exam scenario. One connection string change is all that's needed in the application.</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-backup -->
+
+
+  <!-- ══ ELASTICACHE ══ -->
+  <div id="tab-elasticache" class="tab-panel">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#E0F4F5;">⚡</div>
+      <div>
+        <h2>ElastiCache</h2>
+        <p>Managed in-memory data store — Redis or Memcached. Microsecond latency. Used to offload reads from databases, store session data, power leaderboards, and cache expensive computations. AWS manages provisioning, patching, failover, and backups.</p>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">The two core patterns</div>
+
+      <div class="arch">
+        <div class="arch-title">Pattern 1: DB Cache — lazy loading (cache-aside)</div>
+        <div class="arch-row">
+          <span class="arch-box blue">App</span><span class="arch-arrow">→ check cache →</span>
+          <span class="arch-box teal">ElastiCache</span><span class="arch-arrow">→ cache HIT: return instantly</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-box blue">App</span><span class="arch-arrow">→ cache MISS →</span>
+          <span class="arch-box teal">nothing</span><span class="arch-arrow">→</span>
+          <span class="arch-box green">RDS</span><span class="arch-arrow">→ write to cache → return to app</span>
+        </div>
+        <p class="arch-note">Cache hit = microsecond response. Cache miss = DB query + populate cache. TTL controls expiry. App manages the cache — RDS is never bypassed for writes.</p>
+      </div>
+
+      <div class="arch">
+        <div class="arch-title">Pattern 2: User Session Store — stateless app servers</div>
+        <div class="arch-row">
+          <span class="arch-box blue">User logs in → Instance 1</span><span class="arch-arrow">→ write session →</span>
+          <span class="arch-box teal">ElastiCache (session: user123)</span>
+        </div>
+        <div class="arch-row">
+          <span class="arch-box blue">Next request → Instance 2</span><span class="arch-arrow">→ read session →</span>
+          <span class="arch-box teal">ElastiCache</span><span class="arch-arrow">→ still logged in ✓</span>
+        </div>
+        <p class="arch-note">Sessions in ElastiCache instead of instance memory = truly stateless servers. Any instance handles any user. ASG scales freely. No sticky sessions needed.</p>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>RDS is hammered by repeated identical SELECT queries for a product catalogue that changes once per day. Responses are slow. Architecture fix?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Implement <strong>lazy loading with ElastiCache</strong>. On first request, app queries RDS and writes result to ElastiCache with 24h TTL. All subsequent requests hit ElastiCache — no RDS query. RDS load drops dramatically. Invalidate the cache key when the catalogue is updated (or let TTL expire it naturally).</p></div>
+          <div class="sq-why"><b>Cache-aside = app manages the cache.</b> App checks cache → falls back to DB on miss → writes to cache. DB is never bypassed for writes. TTL too short = too many misses. TTL too long = stale data. Balance against how often data actually changes.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A web app stores sessions in EC2 instance memory. When ASG replaces an instance, users are logged out. Fix without sticky sessions.</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Move session storage to <strong>ElastiCache Redis</strong>. Login writes session to Redis. Subsequent requests (any instance) read session from Redis. Instance replacements don't affect sessions — data lives in ElastiCache, not on the instance. App becomes truly stateless.</p></div>
+          <div class="sq-why"><b>Stateless app + shared session store = canonical HA web app pattern.</b> Eliminates need for sticky sessions (which cause uneven load). Any instance serves any user. This pattern is tested constantly — "users logged out on instance replacement" → ElastiCache sessions.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">Redis vs Memcached — know this cold</div>
+
+      <div class="cmp-wrap">
+        <table class="cmp">
+          <thead><tr><th>Feature</th><th>Redis</th><th>Memcached</th></tr></thead>
+          <tbody>
+            <tr><td>Data structures</td><td>Strings, Lists, Sets, Sorted Sets, Hashes, Streams</td><td>Strings only</td></tr>
+            <tr><td>Persistence</td><td>Yes (RDB snapshots + AOF logs)</td><td>No — lost on restart</td></tr>
+            <tr><td>Multi-AZ failover</td><td>Yes — automatic</td><td>No</td></tr>
+            <tr><td>Read replicas</td><td>Yes (up to 5 per shard)</td><td>No</td></tr>
+            <tr><td>Pub/Sub</td><td>Yes</td><td>No</td></tr>
+            <tr><td>Backup/restore</td><td>Yes</td><td>No</td></tr>
+            <tr><td>Multi-threaded</td><td>No (single-threaded core)</td><td>Yes</td></tr>
+            <tr><td>Use when</td><td>Sessions, leaderboards, pub/sub, persistence, HA, sorted data</td><td>Simple key-value caching only, multi-threaded horizontal scale</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout exam">
+        <span class="label">Redis is almost always the correct answer</span>
+        If the scenario mentions: sessions, leaderboards, sorted sets, pub/sub, persistence, HA, failover, backup/restore, complex data types → <strong>Redis</strong>. Memcached wins only when: simple caching + multi-threaded needed + no persistence + no HA required. In practice and on the exam, Redis is chosen ~95% of the time.
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">Cache Security</div>
+      <table class="kv">
+        <tr><td>Network</td><td>Deploy in a private subnet. Security groups control access. Never expose ElastiCache to the internet.</td></tr>
+        <tr><td>Redis AUTH</td><td>Password/token required on connection. Use Secrets Manager to store it. Requires in-transit encryption enabled.</td></tr>
+        <tr><td>Redis RBAC</td><td>Redis 6+ — user-based access control with per-user permissions and key pattern restrictions. More granular than a single AUTH password.</td></tr>
+        <tr><td>Encryption at rest</td><td>KMS. Set at cluster creation — cannot enable retroactively.</td></tr>
+        <tr><td>Encryption in transit</td><td>TLS. Required for Redis AUTH to function.</td></tr>
+        <tr><td>IAM</td><td>IAM controls the ElastiCache <strong>management API</strong> (create/delete clusters) only. <strong>IAM is NOT used to authenticate Redis/Memcached data operations</strong> — use Redis AUTH/RBAC instead.</td></tr>
+      </table>
+
+      <div class="callout trap">
+        <span class="label">IAM does NOT authenticate to ElastiCache data operations</span>
+        Common exam trap: "use IAM auth for ElastiCache". IAM = management plane (cluster creation/deletion via API). Redis data auth = Redis AUTH password or RBAC users. For network security = Security Groups + VPC. Getting this wrong is a very common exam mistake.
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">ElastiCache Redis — real-world use cases</div>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-title" style="color:var(--teal);">Gaming Leaderboards</div>
+          <p>Redis <strong>Sorted Sets (ZSET)</strong>. <code>ZADD leaderboard [score] [playerId]</code>. Top 100: <code>ZREVRANGE 0 99</code>. Player rank: <code>ZREVRANK [playerId]</code>. O(log N) ops, microsecond responses, millions of players.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--teal);">Rate Limiting</div>
+          <p>Redis <strong>INCR</strong> + TTL. <code>INCR user:123:requests</code> → if &gt; limit, reject. TTL auto-expires the counter. Atomic — no race conditions. Standard pattern for API throttling.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--teal);">Pub/Sub Messaging</div>
+          <p>Redis <strong>Pub/Sub</strong>. Publisher sends to channel, all subscribers receive instantly. Real-time notifications, chat, live dashboards. Not durable — messages lost if no subscriber is active.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--teal);">Distributed Locks</div>
+          <p>Redis <strong>SETNX</strong> (set if not exists) + TTL. Prevents multiple app instances executing the same critical section. Common for distributed job scheduling and resource coordination.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--teal);">ML Feature Store</div>
+          <p>Pre-computed features stored in Redis for real-time inference. Recommendation systems and fraud detection look up features in microseconds instead of computing them on-the-fly during prediction.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--teal);">Queues &amp; Streams</div>
+          <p>Redis <strong>Lists</strong> (LPUSH/RPOP) as FIFO queues. Redis <strong>Streams</strong> for durable queues with consumer groups and acknowledgement. Alternative to SQS for teams already on Redis.</p>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A gaming company needs a real-time global leaderboard showing top 100 players and each user's rank among millions. Sub-millisecond responses required. How?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Use <strong>Redis Sorted Sets (ZSET)</strong> in ElastiCache. Update score: <code>ZADD leaderboard [score] [playerId]</code>. Top 100: <code>ZREVRANGE leaderboard 0 99 WITHSCORES</code>. Player rank: <code>ZREVRANK leaderboard [playerId]</code>. All operations O(log N) — microsecond latency at millions of players. No DB query for any read operation.</p></div>
+          <div class="sq-why"><b>Sorted Sets are the canonical leaderboard structure.</b> "Real-time ranking", "leaderboard", "sorted by score" → Redis Sorted Sets. A relational DB would need expensive ORDER BY + RANK window functions at scale. Redis beats it by orders of magnitude.</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-elasticache -->
+
+
+  <!-- ══ EXAM TIPS ══ -->
+  <div id="tab-exam" class="tab-panel">
+    <div class="svc-header">
+      <div class="svc-icon" style="background:#F0E8D8;">📋</div>
+      <div>
+        <h2>Exam Tips &amp; Scenarios</h2>
+        <p>The patterns that appear in Stephane's quizzes and the SAA-C03 exam. One keyword in the scenario often decides the entire answer — train yourself to spot them instantly.</p>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">RDS scenarios</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A reporting team runs heavy analytical queries that slow down the production RDS database. What's the right fix?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Create a <strong>Read Replica</strong> and point reporting queries to its endpoint. Primary handles writes unaffected. The replica can be a larger instance size to handle analytics load. The reporting team's connection string must be updated — RDS does not auto-route reads.</p></div>
+          <div class="sq-why"><b>"Offload reads" → Read Replica. "Survive AZ failure" → Multi-AZ.</b> The standby in Multi-AZ is NOT readable. This distinction is the most tested RDS concept on the exam.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>RDS in us-east-1 needs DR in eu-west-1 with RTO under 1 hour. How?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Create a <strong>cross-region Read Replica in eu-west-1</strong>. In a disaster, promote it to standalone (RTO = minutes). Alternatively, enable cross-region backup replication and restore from backup (simpler setup, higher RTO — depends on DB size).</p></div>
+          <div class="sq-why"><b>RTO decides the answer.</b> Sub-hour RTO → cross-region replica (promote it). Higher RTO acceptable → cross-region backup restore. Cross-region replica has ongoing cost; backup restore has none until disaster.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Company needs OS-level access to their RDS Oracle instance to install a custom monitoring agent. What service?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p><strong>RDS Custom for Oracle.</strong> SSH/SSM access to the underlying EC2 instance. Available for Oracle and SQL Server only.</p></div>
+          <div class="sq-why"><b>"OS access on RDS" = RDS Custom.</b> The triggers: "custom OS patches", "install OS agent", "access underlying OS". Standard RDS → no OS access. RDS Custom → limited OS access. EC2 self-managed → full OS access.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">Aurora scenarios</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Need MySQL-compatible DB that survives full AZ failure with auto-failover in &lt;30s and minimal data loss. RDS Multi-AZ takes ~60s. What do you use?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p><strong>Aurora MySQL.</strong> 6 storage copies across 3 AZs. Promotes read replica in &lt;30s — no data to sync (shared storage). Up to 15 read replicas any of which can be promoted. Fundamentally more resilient than RDS Multi-AZ.</p></div>
+          <div class="sq-why"><b>"Faster failover" or "more resilient" → Aurora.</b> RDS Multi-AZ = 60s, sync standby, 1 standby. Aurora = &lt;30s, 6 storage copies, 15 replicas. Aurora wins on every HA metric.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Developer ran bad UPDATE on Aurora PostgreSQL — all rows affected. Need fast recovery. Backtrack available?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p><strong>Backtrack is MySQL-compatible only.</strong> For Aurora PostgreSQL, use <strong>Point-in-Time Restore</strong> — restore to a new cluster from just before the incident. Slower than Backtrack but always available. For Aurora MySQL → Backtrack (faster, same cluster). Engine matters.</p></div>
+          <div class="sq-why"><b>Backtrack = Aurora MySQL only.</b> If the question says PostgreSQL → PITR (new cluster). If MySQL → Backtrack option available. This nuance is tested.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">ElastiCache scenarios</div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>Cache needs to persist data across restarts, support sorted leaderboards, and have automatic failover. Redis or Memcached?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p><strong>Redis.</strong> All three requirements map to Redis features: persistence (RDB/AOF), Sorted Sets (leaderboards), Multi-AZ failover. Memcached has none of these. Whenever an exam scenario has requirements beyond "simple key-value cache" → Redis.</p></div>
+          <div class="sq-why"><b>Memcached is correct only when:</b> simple key-value, multi-threaded needed, data loss on restart acceptable. This is rarely the case in exam scenarios — Redis almost always wins.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>App behind ALB with 10 EC2 instances. Users randomly logged out when routed to different instances. Cheapest fix, minimum code change?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p>Move session storage to <strong>ElastiCache Redis</strong>. Change session handler to Redis (one config line in most frameworks). All instances share session state — any instance serves any user. Cheaper and more resilient than sticky sessions, which still fail if the pinned instance is terminated.</p></div>
+          <div class="sq-why"><b>Sticky sessions fix the symptom, not the cause.</b> If the sticky instance is replaced, session is lost anyway. ElastiCache fixes the root cause — session is external to any instance. Always the better architectural answer.</div>
+        </div>
+      </div>
+
+      <div class="scenario-block">
+        <div class="sq q-row"><span class="sq-badge q">Q</span><p>A team says "use IAM authentication for ElastiCache Redis". Is this correct?</p></div>
+        <div class="sq a-row">
+          <div class="ans-line"><span class="sq-badge a">A</span><p><strong>Incorrect for data operations.</strong> IAM controls the ElastiCache management API (create/delete/modify clusters via AWS API). It does NOT authenticate Redis data operations (GET, SET, ZADD etc.). For Redis data auth: use <strong>Redis AUTH</strong> (password token) or <strong>Redis RBAC</strong> (user-based). For network security: Security Groups + VPC private subnet.</p></div>
+          <div class="sq-why"><b>This distinction is a deliberate trap.</b> RDS supports IAM DB authentication (token-based). ElastiCache does not — Redis uses its own auth mechanism. Confusing the two is a common exam mistake.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section fade-in">
+      <div class="section-title">Quick-fire facts</div>
+      <table class="qf">
+        <tr><td>RDS Read Replicas max</td><td>5 per primary</td></tr>
+        <tr><td>Aurora Read Replicas max</td><td>15 per cluster</td></tr>
+        <tr><td>RDS Multi-AZ failover time</td><td>~60–120 seconds</td></tr>
+        <tr><td>Aurora failover time</td><td>&lt;30 seconds</td></tr>
+        <tr><td>Read Replica replication</td><td>Async (may lag)</td></tr>
+        <tr><td>Multi-AZ replication</td><td>Sync (always in lockstep)</td></tr>
+        <tr><td>Multi-AZ standby readable?</td><td>No — DR only</td></tr>
+        <tr><td>RDS backup max retention</td><td>35 days</td></tr>
+        <tr><td>Aurora backup</td><td>Continuous, cannot be disabled</td></tr>
+        <tr><td>Aurora Backtrack window max</td><td>72 hours (MySQL-compatible only)</td></tr>
+        <tr><td>Aurora storage copies</td><td>6 across 3 AZs</td></tr>
+        <tr><td>Aurora storage max</td><td>128 TB (grows in 10 GB increments)</td></tr>
+        <tr><td>Automated backup on deletion</td><td>Deleted with instance. Manual snapshots survive.</td></tr>
+        <tr><td>RDS Proxy use case</td><td>Lambda + RDS (connection limit problem)</td></tr>
+        <tr><td>RDS Proxy public access?</td><td>No — VPC only</td></tr>
+        <tr><td>ElastiCache IAM auth?</td><td>No (IAM = management API only, not data ops)</td></tr>
+        <tr><td>Redis persistence?</td><td>Yes (RDB + AOF). Memcached: No.</td></tr>
+        <tr><td>Redis Multi-AZ?</td><td>Yes. Memcached: No.</td></tr>
+        <tr><td>Same-region replica replication</td><td>Free (even cross-AZ)</td></tr>
+        <tr><td>Cross-region replica replication</td><td>Charged</td></tr>
+        <tr><td>Babelfish</td><td>Aurora PostgreSQL — T-SQL for SQL Server migration</td></tr>
+        <tr><td>RDS Custom engines</td><td>Oracle and SQL Server only</td></tr>
+        <tr><td>Aurora Cloning method</td><td>Copy-on-write — fast and cheap</td></tr>
+      </table>
+    </div>
+  </div><!-- /tab-exam -->
+
+</div><!-- /page -->
+
+<footer>
+  <p>Chapter 05 — RDS · Aurora · ElastiCache · Shreyas Rajiv</p>
+  <p><a href="index.html">← All chapters</a> &nbsp;·&nbsp; SAA-C03 &nbsp;·&nbsp; Stephane Maarek course</p>
+</footer>
+
+<script>
+  function showTab(id, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    btn.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>
